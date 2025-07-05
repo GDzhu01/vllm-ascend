@@ -32,6 +32,7 @@ import torch
 import torch._dynamo.cache_size
 import torch.distributed as dist
 import torch.nn as nn
+import torch_npu
 from torch.distributed import ReduceOp
 from vllm.attention import AttentionType, get_attn_backend
 from vllm.attention.layer import Attention
@@ -96,7 +97,7 @@ import vllm_ascend.envs as envs_ascend
 if vllm_version_is("0.9.1"):
     from vllm.v1.spec_decode.utils import is_spec_decode_supported
 
-
+time_stamps = []
 @dataclass
 class GraphCaptureContext:
     stream: torch.npu.Stream
@@ -1186,7 +1187,12 @@ class NPUModelRunner(LoRAModelRunnerMixin):
         if self.torchair_graph_enabled and not with_prefill:
             input_ids = self.input_ids[:padded_batch_size]
             positions = self.positions[:padded_batch_size]
-
+        torch.npu.synchronize()
+        ignore_cnt = 2
+        if get_dp_group().rank_in_group == 0 and not with_prefill:
+            time_stamps.append(time.perf_counter())
+            if len(time_stamps) > ignore_cnt + 1 and len(time_stamps) % 10 == 0:
+                print(f"current last decode time: {(time_stamps[-1] - time_stamps[-2]) * 1000} ms,  mean decode time: {(time_stamps[-1] - time_stamps[ignore_cnt]) * 1000 / (len(time_stamps) - ignore_cnt - 1)} ms")
         # Run forward pass
         with set_forward_context(attn_metadata,
                                  self.vllm_config,
@@ -2007,6 +2013,16 @@ class NPUModelRunner(LoRAModelRunnerMixin):
 
         with DeviceMemoryProfiler() as m:  # noqa: SIM117
             self.model = get_model(vllm_config=self.vllm_config)
+            from vllm.model_executor.layers.linear import (
+                MergedColumnParallelLinear, QKVParallelLinear,
+                RowParallelLinear)
+            from vllm_ascend.models.pangu_moe import CustomMergedColumnParallelLinear, CustomRowParallelLinear
+            for module in self.model.modules():
+                if isinstance(module,
+                                (MergedColumnParallelLinear,
+                                QKVParallelLinear, RowParallelLinear, CustomMergedColumnParallelLinear, CustomRowParallelLinear)):
+                    module.weight.data = torch_npu.npu_format_cast(
+                        module.weight.data, ACL_FORMAT_FRACTAL_NZ)
             try:
                 # For version compatibility, remove this after we abort vllm v0.9.1 support
                 from vllm.model_executor.models.interfaces import \
