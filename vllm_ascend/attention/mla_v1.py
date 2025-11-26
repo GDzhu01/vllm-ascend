@@ -1073,7 +1073,7 @@ class AscendMLAImpl(MLAAttentionImpl):
 
         device = self.q_proj.weight.device
         self.gamma1 = self.q_a_layernorm.weight.data
-        self.beta1 = self.q_a_layernorm.bias.data
+        self.beta1 = torch.zeros_like(self.gamma1) if (_bias := self.q_a_layernorm.bias) is None else _bias.data
         self.gamma2 = self.kv_a_layernorm.weight.data
         self.quant_scale0 = self.fused_qkv_a_proj.input_scale.data
         self.quant_offset0 = self.fused_qkv_a_proj.input_offset.data

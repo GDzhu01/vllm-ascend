@@ -339,6 +339,7 @@ def adapt_patch(is_global_patch: bool = False):
 
 @functools.cache
 def vllm_version_is(target_vllm_version: str):
+    return False
     if envs_ascend.VLLM_VERSION is not None:
         vllm_version = envs_ascend.VLLM_VERSION
     else:
