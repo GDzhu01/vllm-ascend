@@ -57,7 +57,6 @@ from vllm.sequence import IntermediateTensors
 from vllm.utils.import_utils import LazyLoader
 from vllm.utils.math_utils import cdiv
 from vllm.utils.mem_utils import DeviceMemoryProfiler
-from vllm.utils.torch_utils import get_dtype_size
 from vllm.v1.attention.backends.gdn_attn import GDNAttentionMetadataBuilder
 from vllm.v1.attention.backends.utils import (AttentionCGSupport,
                                               CommonAttentionMetadata)
@@ -192,6 +191,7 @@ class NPUModelRunner(GPUModelRunner):
     def __init__(self, vllm_config: VllmConfig, device: torch.device):
         with _torch_cuda_wrapper():
             super().__init__(vllm_config, device)
+        self.max_num_tokens = self.scheduler_config.max_num_batched_tokens
         self.max_num_reqs = self.scheduler_config.max_num_seqs
         self.dp_size = vllm_config.parallel_config.data_parallel_size
         self.dp_rank = vllm_config.parallel_config.data_parallel_rank
@@ -575,10 +575,10 @@ class NPUModelRunner(GPUModelRunner):
                 tokens)
             num_scheduled_tokens = np.array(tokens, dtype=np.int32)
             total_num_scheduled_tokens = sum(num_scheduled_tokens[:num_reqs])
-            total_num_pcp_pads = torch.sum(self.num_pcp_pads).item()
+            total_num_pcp_pads = torch.sum(self.num_pcp_pads[:num_reqs]).item()
         else:
             position_pcp, pcp_unpad_mask = None, None
-            self.num_pcp_pads = self.num_pcp_pads[:num_reqs]
+            self.num_pcp_pads[:num_reqs] = 0
 
         max_num_scheduled_tokens = max(tokens)
         if not scheduler_output.scheduled_spec_decode_tokens:
@@ -2194,7 +2194,14 @@ class NPUModelRunner(GPUModelRunner):
             self._dummy_run(mc2_tokens_capacity,
                             with_prefill=True,
                             is_profile=True)
+        origin_max_num_tokens = self.max_num_tokens
+        # in the pcp scenario, the split sequence needs to be used for profile run
+        # TODO: after the vllm pcp function is launched, this logic needs to be brought up to the community
+        if self.pcp_size > 1:
+            self.max_num_tokens = math.ceil(self.max_num_tokens /
+                                            (self.pcp_size * 2)) * 2
         super().profile_run()
+        self.max_num_tokens = origin_max_num_tokens
 
     def eplb_warmup(self):
         if self.dynamic_eplb and not self.is_eplb_warmuped:
@@ -2533,6 +2540,7 @@ class NPUModelRunner(GPUModelRunner):
                     ) % kv_cache_spec.page_size_bytes == 0
                     num_blocks = raw_tensor.numel(
                     ) // kv_cache_spec.page_size_bytes
+                    assert num_blocks >= kv_cache_config.num_blocks
 
                     # `num_blocks` is the number of blocks the model runner can use.
                     # `kv_cache_config.num_blocks` is the number of blocks that
@@ -2541,27 +2549,22 @@ class NPUModelRunner(GPUModelRunner):
                     # different memory capacities, `num_blocks` can be different on
                     # different GPUs, and `kv_cache_config.num_blocks` is set to
                     # the min of all `num_blocks`. Verify it here.
-                    assert num_blocks >= kv_cache_config.num_blocks
 
                     state_tensors = []
-                    storage_offset_bytes = 0
-                    for (shape, dtype) in zip(kv_cache_spec.shapes,
-                                              kv_cache_spec.dtypes):
-                        dtype_size = get_dtype_size(dtype)
-                        num_element_per_page = (
-                            kv_cache_spec.page_size_bytes // dtype_size)
+                    target_idx = 0
+                    start_idx = 0
+                    for shape, dtype in zip(kv_cache_spec.shapes,
+                                            kv_cache_spec.dtypes):
+                        # normally, there is conv state and ssm state in this loop. And there is only
+                        # a conv state in some special models.
                         target_shape = (num_blocks, *shape)
-                        stride = torch.empty(target_shape).stride()
-                        target_stride = (num_element_per_page, *stride[1:])
-                        assert storage_offset_bytes % dtype_size == 0
-                        tensor = torch.as_strided(
-                            raw_tensor.view(dtype),
-                            size=target_shape,
-                            stride=target_stride,
-                            storage_offset=storage_offset_bytes // dtype_size,
-                        )
+
+                        target_idx += torch.prod(
+                            torch.tensor(target_shape)).item()
+                        tensor = raw_tensor.view(
+                            dtype)[start_idx:target_idx].view(target_shape)
+                        start_idx = target_idx
                         state_tensors.append(tensor)
-                        storage_offset_bytes += stride[0] * dtype_size
                     kv_caches[layer_name] = state_tensors
                 else:
                     raise ValueError("Unknown KV cache spec type.")
@@ -3050,7 +3053,6 @@ class NPUModelRunner(GPUModelRunner):
 
     def _update_tokens_for_pcp(self, tokens):
         num_reqs = self.input_batch.num_reqs
-        self.num_pcp_pads = self.num_pcp_pads[:num_reqs]
         tokens = np.array(tokens, dtype=np.int32)
         num_decode_reqs = (np.array(tokens) <= self.decode_threshold).sum()
         num_decode_tokens = sum(tokens[:num_decode_reqs])
@@ -3059,7 +3061,8 @@ class NPUModelRunner(GPUModelRunner):
             (2 * self.pcp_size)).astype(np.int32) * (2 * self.pcp_size)
         num_padded_scheduled_tokens[:num_decode_reqs] = (
             tokens[:num_decode_reqs] * self.pcp_size)
-        self.num_pcp_pads = torch.tensor(num_padded_scheduled_tokens - tokens)
+        self.num_pcp_pads[:num_reqs] = torch.tensor(
+            num_padded_scheduled_tokens - tokens)
         cu_padded_tokens, pcp_padded_arange = \
             self._get_cumsum_and_arange(num_padded_scheduled_tokens)
         unpad_mask = torch.from_numpy(
