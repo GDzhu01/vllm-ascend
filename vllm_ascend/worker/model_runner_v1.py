@@ -2012,6 +2012,7 @@ class NPUModelRunner(GPUModelRunner):
             num_input_tokens=num_tokens_padded,
             actual_seq_lengths_q=self.actual_seq_lengths_q,
             positions=self.positions.gpu,
+            positions_cpu=self.positions.cpu,
             attn_state=self.attn_state,
             decode_token_per_req=self.decode_token_per_req,
             prefill_context_parallel_metadata=self.long_seq_metadata,
@@ -3107,3 +3108,4 @@ def update_pass_config(model_runner):
         yield
     finally:
         model_runner.compilation_config.pass_config.enable_sp = original_pass_config_sp
+

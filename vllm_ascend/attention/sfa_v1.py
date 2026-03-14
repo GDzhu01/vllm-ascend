@@ -53,7 +53,7 @@ from vllm_ascend.worker.npu_input_batch import NPUInputBatch
 
 if TYPE_CHECKING:
     from vllm.v1.core.sched.output import SchedulerOutput
-
+from vllm_ascend.utils import acl_graph_print
 # token count limits within bmm_transpose operator
 BMM_TRANS_MAX_SUPPORTED_TOKENS = 1024
 
@@ -141,6 +141,7 @@ class AscendSFAMetadata:
     num_decodes: int = 0
     num_decode_tokens: int = 0
     num_prefills: int = 0
+    topk_indices: torch.Tensor = None
 
 
 M = TypeVar("M", bound=AscendSFAMetadata)
@@ -192,6 +193,8 @@ class AscendSFAMetadataBuilder(MLACommonMetadataBuilder[AscendSFAMetadata]):
         self.actual_seq_lengths_query = torch.zeros(max_num_reqs + 1, dtype=torch.int32, device=device)
         self.actual_seq_lengths_key = torch.empty_like(self.actual_seq_lengths_query)
 
+        self.topk_indices = torch.full((vllm_config.scheduler_config.max_num_batched_tokens, 1, 2048), -1, dtype=torch.int32, device=device)
+
     @staticmethod
     def determine_chunked_prefill_workspace_size(vllm_config: VllmConfig) -> int:
         return ascend_chunked_prefill_workspace_size(vllm_config)
@@ -223,13 +226,24 @@ class AscendSFAMetadataBuilder(MLACommonMetadataBuilder[AscendSFAMetadata]):
         block_table = common_attn_metadata.block_table_tensor[:num_reqs]
         slot_mapping = common_attn_metadata.slot_mapping[:num_input_tokens]
         input_positions = common_attn_metadata.positions[:num_input_tokens].long()
+        input_positions_cpu = common_attn_metadata.positions_cpu[:num_input_tokens].long()
 
         cum_query_lens = common_attn_metadata.query_start_loc[1 : num_reqs + 1]
         seq_lens = common_attn_metadata.seq_lens[:num_reqs]
+        seq_lens_cpu = common_attn_metadata.seq_lens_cpu[:num_reqs]
 
         cos, sin = get_cos_and_sin_mla(input_positions, True)
 
         dsa_cp_context = None
+        topk_init = torch.full((num_input_tokens, 1, 2048), -1, dtype=torch.int32, device=seq_lens.device)
+
+        for i, val in enumerate(input_positions_cpu):
+            seq_length = min(2048,val.item())
+            if seq_length > 0:
+                seq = torch.arange(seq_length, dtype=torch.int32, device=seq_lens.device)
+                topk_init[i, 0, :seq_length] = seq
+        self.topk_indices.fill_(-1)
+        self.topk_indices[:num_input_tokens] = topk_init
         if self.enable_dsa_cp:
             global_tp_size = get_tp_group().world_size
             num_tokens = num_input_tokens
@@ -321,6 +335,7 @@ class AscendSFAMetadataBuilder(MLACommonMetadataBuilder[AscendSFAMetadata]):
             sin=sin[:num_input_tokens],
             cos=cos[:num_input_tokens],
             dsa_cp_context=dsa_cp_context,
+            topk_indices = self.topk_indices[:num_input_tokens]
         )
 
     def build_for_graph_capture(
@@ -434,6 +449,7 @@ class AscendSFAImpl(MLAAttentionImpl):
                         "skipping sharding configuration"
                     )
             register_all_layers_to_shard_weight_series(self.layer_sharding_kwargs)
+
 
     def process_weights_after_loading(self, act_dtype: torch.dtype):
         # NOTE: We currently do not support quant kv_b_proj.
@@ -777,9 +793,9 @@ class AscendSFAImpl(MLAAttentionImpl):
                 need_gather_q_kv=need_gather_q_kv,
                 num_input_tokens=num_input_tokens,
             )
-            q, k = self.indexer_select_pre_process(
-                x=hidden_states, qr=q_c, cos=cos, sin=sin, need_gather_q_kv=need_gather_q_kv
-            )
+            # q, k = self.indexer_select_pre_process(
+            #     x=hidden_states, qr=q_c, cos=cos, sin=sin, need_gather_q_kv=need_gather_q_kv
+            # )
         else:
             assert self.fused_qkv_a_proj is not None, "q lora is required for DSA."
             weight_prefetch_method = get_weight_prefetch_method()
@@ -800,9 +816,9 @@ class AscendSFAImpl(MLAAttentionImpl):
                     kv_no_split.contiguous(), need_gather_q_kv
                 )
 
-            q, k = self.indexer_select_pre_process(
-                x=hidden_states, qr=q_c, cos=cos, sin=sin, need_gather_q_kv=need_gather_q_kv
-            )
+            # q, k = self.indexer_select_pre_process(
+            #     x=hidden_states, qr=q_c, cos=cos, sin=sin, need_gather_q_kv=need_gather_q_kv
+            # )
 
             wait_for_kv_layer_from_connector(layer_name)
 
@@ -821,7 +837,7 @@ class AscendSFAImpl(MLAAttentionImpl):
                 # support all_gather kv async for communication calculation overlap
                 fused_kv_no_split, kv_ag_handle = all_gather_async(
                     torch.cat(
-                        [k_pe.view(-1, k_pe.shape[-1]), k_nope.view(-1, k_nope.shape[-1]), k.view(-1, k.shape[-1])],
+                        [k_pe.view(-1, k_pe.shape[-1]), k_nope.view(-1, k_nope.shape[-1])],
                         dim=1,
                     ),
                     get_tp_group(),
@@ -846,35 +862,35 @@ class AscendSFAImpl(MLAAttentionImpl):
 
                 if kv_cache is not None:
                     assert fused_kv_no_split is not None
-                    k_pe, k_nope, k = fused_kv_no_split.split(
-                        [self.qk_rope_head_dim, self.kv_lora_rank, self.head_dim], dim=-1
+                    k_pe, k_nope= fused_kv_no_split.split(
+                        [self.qk_rope_head_dim, self.kv_lora_rank], dim=-1
                     )
                     slot_mapping = attn_metadata.slot_mapping.view(-1, 1)
                     torch_npu.npu_scatter_nd_update_(kv_cache[0].view(-1, k_nope.shape[-1]), slot_mapping, k_nope)
                     torch_npu.npu_scatter_nd_update_(kv_cache[1].view(-1, k_pe.shape[-1]), slot_mapping, k_pe)
 
-            k = self._get_full_kv(k, attn_metadata)
-            if kv_cache is not None:
-                torch_npu.npu_scatter_nd_update_(
-                    kv_cache[2].view(-1, k.shape[-1]), attn_metadata.slot_mapping.view(-1, 1), k.view(-1, k.shape[-1])
-                )  # b, s, n, d
+            # k = self._get_full_kv(k, attn_metadata)
+            # if kv_cache is not None:
+            #     torch_npu.npu_scatter_nd_update_(
+            #         kv_cache[2].view(-1, k.shape[-1]), attn_metadata.slot_mapping.view(-1, 1), k.view(-1, k.shape[-1])
+            #     )  # b, s, n, d
 
-        topk_indices = self.indexer_select_post_process(
-            x=hidden_states,
-            qr=q_c,
-            q=q,
-            k=k,
-            kv_cache=kv_cache,
-            attn_metadata=attn_metadata,
-            cos=cos,
-            sin=sin,
-            actual_seq_lengths_query=actual_seq_lengths_query,
-            actual_seq_lengths_key=actual_seq_lengths_key,
-            need_gather_q_kv=need_gather_q_kv,
-        )
+        # topk_indices = self.indexer_select_post_process(
+        #     x=hidden_states,
+        #     qr=q_c,
+        #     q=q,
+        #     k=k,
+        #     kv_cache=kv_cache,
+        #     attn_metadata=attn_metadata,
+        #     cos=cos,
+        #     sin=sin,
+        #     actual_seq_lengths_query=actual_seq_lengths_query,
+        #     actual_seq_lengths_key=actual_seq_lengths_key,
+        #     need_gather_q_kv=need_gather_q_kv,
+        # )
 
         attn_output = self._execute_sparse_flash_attention_process(
-            ql_nope, q_pe, kv_cache, topk_indices, attn_metadata, actual_seq_lengths_query, actual_seq_lengths_key
+            ql_nope, q_pe, kv_cache, attn_metadata.topk_indices, attn_metadata, actual_seq_lengths_query, actual_seq_lengths_key
         )
 
         attn_output = self._v_up_proj(attn_output)
@@ -912,7 +928,6 @@ class AscendSFAImpl(MLAAttentionImpl):
         block_table = attn_metadata.block_table
         kv = kv_cache[0]
         key_rope = kv_cache[1]
-
         attn_output = torch.ops._C_ascend.npu_sparse_flash_attention(
             query=ql_nope,
             key=kv,

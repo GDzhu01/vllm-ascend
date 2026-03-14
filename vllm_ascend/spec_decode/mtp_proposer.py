@@ -81,6 +81,7 @@ class MtpProposer(EagleProposer):
                     block_table_tensor=self.runner.input_batch.block_table[0].get_device_tensor(),
                     slot_mapping=self.runner.input_batch.block_table[0].slot_mapping.gpu,
                     positions=self.runner.positions.gpu,
+                    positions_cpu=self.runner.position.cpu,
                     attn_state=self.runner.attn_state,
                     decode_token_per_req=self.runner.decode_token_per_req,
                     max_seq_len=0,
@@ -545,3 +546,4 @@ class MtpProposer(EagleProposer):
         # mtp>1: [batch_size, k]
         draft_token_ids = torch.stack(draft_token_ids_list, dim=1)
         return draft_token_ids
+
