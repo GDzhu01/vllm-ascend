@@ -35,7 +35,7 @@ Start the docker image on your each node.
 ```{code-block} bash
    :substitutions:
 
-export IMAGE=quay.io/ascend/vllm-ascend:v0.18.0rc?
+export IMAGE=quay.io/ascend/vllm-ascend:deepseekv4
 export NAME=vllm-ascend
 docker run --rm \
     --name $NAME \
@@ -73,7 +73,7 @@ Start the docker image on your each node.
 ```{code-block} bash
    :substitutions:
 
-export IMAGE=quay.io/ascend/vllm-ascend:v0.18.0rc?-a3
+export IMAGE=quay.io/ascend/vllm-ascend:deepseekv4-a3
 export NAME=vllm-ascend
 docker run --rm \
     --name $NAME \
