@@ -35,32 +35,32 @@ Start the docker image on your each node.
 ```{code-block} bash
    :substitutions:
 
-export IMAGE=quay.io/ascend/vllm-ascend:deepseekv4
-export NAME=vllm-ascend
-docker run --rm \
-    --name $NAME \
-    --net=host \
-    --shm-size=512g \
-    --device /dev/davinci0 \
-    --device /dev/davinci1 \
-    --device /dev/davinci2 \
-    --device /dev/davinci3 \
-    --device /dev/davinci4 \
-    --device /dev/davinci5 \
-    --device /dev/davinci6 \
-    --device /dev/davinci7 \
-    --device /dev/davinci_manager \
-    --device /dev/devmm_svm \
-    --device /dev/hisi_hdc \
-    -v /usr/local/dcmi:/usr/local/dcmi \
-    -v /usr/local/Ascend/driver/tools/hccn_tool:/usr/local/Ascend/driver/tools/hccn_tool \
-    -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
-    -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
-    -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
-    -v /etc/ascend_install.info:/etc/ascend_install.info \
-    -v /etc/hccn.conf:/etc/hccn.conf \
-    -v /mnt/sfs_turbo/.cache:/root/.cache \
-    -it $IMAGE bash
+#!/bin/sh
+NAME=deepseekV4-18.0
+DEVICES="0,1,2,3,4,5,6,7"
+IMAGE="quay.io/ascend/vllm-ascend:v0.18.0rc1"
+docker run -itd -u 0  --ipc=host  --privileged \
+-e VLLM_USE_MODELSCOPE=True -e PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:256 \
+-e ASCEND_RT_VISIBLE_DEVICES=$DEVICES \
+--name $NAME \
+--net=host \
+--device /dev/davinci_manager \
+--device /dev/devmm_svm \
+--device /dev/hisi_hdc \
+--shm-size=1200g \
+-v /usr/local/dcmi:/usr/local/dcmi \
+-v /usr/local/Ascend/driver/tools/hccn_tool:/usr/local/Ascend/driver/tools/hccn_tool \
+-v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+-v /usr/local/bin/ais_bench:/usr/local/bin/ais_bench \
+-v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ \
+-v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info \
+-v /etc/ascend_install.info:/etc/ascend_install.info \
+-v /mnt/nfs:/mnt/nfs \
+-v /etc/hccn.conf:/etc/hccn.conf \
+-v /root/.cache:/root/.cache \
+-v /mnt/nfs_hw/:/mnt/nfs_hw/ \
+--privileged=true \
+-it $IMAGE bash
 ```
 
 ::::
@@ -143,31 +143,51 @@ Run the following scripts on each node respectively.
 Run the following script to execute online inference.
 
 ```shell
-export USE_MULTI_BLOCK_POOL=1
+#!/usr/bin/bash
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
 export OMP_PROC_BIND=false
-export OMP_NUM_THREADS=10
+export OMP_NUM_THREADS=8
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export ACL_OP_INIT_MODE=1
-export TRITON_ALL_BLOCKS_PARALLEL=1
+export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
 
-vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp \
-  --host 0.0.0.0 \
-  --max_model_len 65536 \
-  --max-num-batched-tokens 8192 \
+export USE_MULTI_GROUPS_KV_CACHE=1
+
+export TASK_QUEUE_ENABLE=1
+export HCCL_OP_EXPANSION_MODE="AIV"
+export HCCL_BUFFSIZE=512
+
+export USE_MULTI_BLOCK_POOL=1
+
+sysctl -w vm.swappiness=0
+sysctl -w kernel.numa_balancing=0
+sysctl kernel.sched_migration_cost_ns=50000
+
+vllm serve /mnt/nfs_hw/weight/DeepSeek-V4-Flash-w8a8-mtp \
+  --safetensors-load-strategy 'prefetch' \
+  --max-model-len 135168 \
+  --max-num-batched-tokens 4096 \
   --served-model-name ds \
-  --gpu-memory-utilization 0.9 \
+  --gpu-memory-utilization 0.92 \
   --max-num-seqs 16 \
   --data-parallel-size 1 \
   --tensor-parallel-size 8 \
   --enable-expert-parallel \
   --quantization ascend \
-  --port 8006 \
+  --port 7000 \
   --block-size 128 \
-  --chat-template /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp/chat_template.jinja \
+  --enable-chunked-prefill \
+  --enable-prefix-caching \
+  --tokenizer-mode deepseek_v4 \
+  --tool-call-parser deepseek_v4 \
+  --enable-auto-tool-choice \
+  --reasoning-parser deepseek_v4 \
   --async-scheduling \
-  --additional-config '{"enable_cpu_binding": "true", "multistream_overlap_shared_expert": true}' \
-  --speculative-config '{"num_speculative_tokens": 1,"method": "deepseek_mtp"}' \
-  --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}'
+  --additional-config '{"enable_cpu_binding":true,"multistream_overlap_shared_expert":false}' \
+  --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[2,4,6,8,10,12,14,16,18,20,22,24,32,36,40]}' \
+  --model-loader-extra-config '{"enable_multithread_load":true,"num_threads":16}' \
+  --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}' \
+  --default-chat-template-kwargs '{"thinking": false}'
 ```
 
 ::::
