@@ -133,11 +133,150 @@ In this tutorial, we suppose you downloaded the model weight to `/root/.cache/`.
 
 ### Multi-node Deployment
 
-- `DeepSeek-V4-Pro-w4a8-mtp`: require at least 2 Atlas 800 A3 (128G × 8).
-Run the following scripts on two nodes respectively.
+- `DeepSeek-V4-Pro-w4a8-mtp`: require at least 2 Atlas 800 A3 (128G × 8) or 4 Atlas 800 A2 (64G × 8).
+Run the following scripts on each node respectively.
 
 :::::{tab-set}
 :sync-group: install
+
+::::{tab-item} A2 series
+:sync: A2
+
+**Node0**
+
+```{code-block} bash
+   :substitutions:
+local_ip="xxx"
+node0_ip="xxxx"
+
+export HCCL_IF_IP=$local_ip
+export IFNAME="xxx"
+export GLOO_SOCKET_IFNAME="$IFNAME"
+export TP_SOCKET_IFNAME="$IFNAME"
+export HCCL_SOCKET_IFNAME="$IFNAME"
+export HCCL_BUFFSIZE=512
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+
+export OMP_PROC_BIND=false
+export OMP_NUM_THREADS=10
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+export ACL_OP_INIT_MODE=1
+export VLLM_ENGINE_READY_TIMEOUT_S=3600
+export HCCL_OP_EXPANSION_MODE="AIV"
+
+export USE_MULTI_BLOCK_POOL=1
+export USE_MULTI_GROUPS_KV_CACHE=1
+export ASCEND_BUFFER_POOL=0:0
+export TASK_QUEUE_ENABLE=1
+#export DYNAMIC_EPLB=true
+export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
+
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+
+echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+sysctl -w vm.swappiness=0
+sysctl -w kernel.numa_balancing=0
+sysctl kernel.sched_migration_cost_ns=50000
+
+vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-mtp \
+  --host 0.0.0.0 \
+  --port 10010 \
+  --max_model_len 133072 \
+  --max-num-batched-tokens 4096 \
+  --served-model-name ds-v4 \
+  --gpu-memory-utilization 0.9 \
+  --max-num-seqs 4 \
+  --data-parallel-size 4 \
+  --tensor-parallel-size 8 \
+  --data-parallel-size-local 1 \
+  --data-parallel-start-rank 0 \
+  --data-parallel-address $node0_ip \
+  --enable-expert-parallel \
+  --quantization ascend \
+  --enable-chunked-prefill \
+  --no-enable-prefix-caching \
+  --tokenizer-mode deepseek_v4 \
+  --tool-call-parser deepseek_v4 \
+  --enable-auto-tool-choice \
+  --reasoning-parser deepseek_v4 \
+  --async-scheduling \
+  --safetensors-load-strategy 'prefetch' \
+  --default-chat-template-kwargs '{"thinking": true}' \
+  --profiler-config '{"profiler": "torch", "torch_profiler_dir": "/path", "torch_profiler_with_stack": false}' \
+  --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}' \
+  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":"True"}' \
+  --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}' > output.log 2>&1 &
+```
+
+**Node1-Node3**
+
+```{code-block} bash
+   :substitutions:
+local_ip="xxx"
+node0_ip="xxxx"
+
+export HCCL_IF_IP=$local_ip
+export IFNAME="xxx"
+
+export GLOO_SOCKET_IFNAME="$IFNAME"
+export TP_SOCKET_IFNAME="$IFNAME"
+export HCCL_SOCKET_IFNAME="$IFNAME"
+export HCCL_BUFFSIZE=512
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+
+export OMP_PROC_BIND=false
+export OMP_NUM_THREADS=10
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+export ACL_OP_INIT_MODE=1
+export VLLM_ENGINE_READY_TIMEOUT_S=3600
+export HCCL_OP_EXPANSION_MODE="AIV"
+
+export USE_MULTI_BLOCK_POOL=1
+export USE_MULTI_GROUPS_KV_CACHE=1
+export ASCEND_BUFFER_POOL=0:0
+export TASK_QUEUE_ENABLE=1
+#export DYNAMIC_EPLB=true
+export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
+
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+
+echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+sysctl -w vm.swappiness=0
+sysctl -w kernel.numa_balancing=0
+sysctl kernel.sched_migration_cost_ns=50000
+
+vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-mtp \
+  --host 0.0.0.0 \
+  --port 10010 \
+  --headless \
+  --max_model_len 133072 \
+  --max-num-batched-tokens 4096 \
+  --served-model-name ds-v4 \
+  --gpu-memory-utilization 0.9 \
+  --max-num-seqs 4 \
+  --data-parallel-size 4 \
+  --tensor-parallel-size 8 \
+  --data-parallel-size-local 1 \
+  --data-parallel-start-rank 1 \
+  --data-parallel-address $node0_ip \
+  --enable-expert-parallel \
+  --quantization ascend \
+  --enable-chunked-prefill \
+  --no-enable-prefix-caching \
+  --async-scheduling \
+  --tokenizer-mode deepseek_v4 \
+  --tool-call-parser deepseek_v4 \
+  --enable-auto-tool-choice \
+  --reasoning-parser deepseek_v4 \
+  --safetensors-load-strategy 'prefetch' \
+  --default-chat-template-kwargs '{"thinking": true}' \
+  --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}' \
+  --profiler-config '{"profiler": "torch", "torch_profiler_dir": "/path", "torch_profiler_with_stack": false}' \
+  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":"True"}' \
+  --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}' > output.log 2>&1 &
+```
+
+::::
 
 ::::{tab-item} A3 series
 :sync: A3
