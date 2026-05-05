@@ -183,6 +183,7 @@ export OMP_NUM_THREADS=10
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True  
 export ACL_OP_INIT_MODE=1
 export ASCEND_A3_ENABLE=1
+export USE_MULTI_GROUPS_KV_CACHE=1
 export USE_MULTI_BLOCK_POOL=1
 export HCCL_BUFFSIZE=1024
 export VLLM_ASCEND_ENABLE_FUSED_MC2=1
@@ -195,7 +196,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8
     --served-model-name dsv4 \
     --gpu-memory-utilization 0.9 \
     --api-server-count 1 \
-    --max-num-seqs 4 \
+    --max-num-seqs 16 \
     --data-parallel-size 4 \
     --tensor-parallel-size 4 \
     --enable-expert-parallel \
@@ -486,6 +487,7 @@ Before you start, please
 
         export ASCEND_BUFFER_POOL=4:8
         export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        export USE_MULTI_GROUPS_KV_CACHE=1
         export USE_MULTI_BLOCK_POOL=1
 
         export ASCEND_RT_VISIBLE_DEVICES=$1
@@ -500,32 +502,38 @@ Before you start, please
             --tensor-parallel-size $7 \
             --enable-expert-parallel \
             --seed 1024 \
-            --served-model-name deepseek_v4 \
-            --max-model-len 65536 \
+            --served-model-name auto \
+            --max-model-len 135000 \
             --max-num-batched-tokens 8192 \
             --max-num-seqs 4 \
             --no-disable-hybrid-kv-cache-manager \
             --no-enable-prefix-caching \
+            --safetensors-load-strategy 'prefetch' \
             --trust-remote-code \
+            --tokenizer-mode deepseek_v4 \
+            --tool-call-parser deepseek_v4 \
+            --enable-auto-tool-choice \
+            --reasoning-parser deepseek_v4 \
             --gpu-memory-utilization 0.85 \
             --quantization ascend \
-            --chat-template /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp/chat_template.jinja \
-            --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+            --profiler-config \
+                '{"profiler": "torch",
+                "torch_profiler_dir": "./vllm_profile",
+                "torch_profiler_with_stack": false}' \
             --enforce-eager \
-            --additional_config '{"enable_cpu_binding": "true"}' \
+            --additional_config '{"enable_cpu_binding": "True"}' \
             --kv-transfer-config \
-            '{"kv_connector": "MooncakeConnectorV1",
+            '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_producer",
-            "kv_port": "30000",
-            "engine_id": "0",
-            "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+            "kv_port": "30100",
+            "engine_id": "1",
             "kv_connector_extra_config": {
                         "prefill": {
                                 "dp_size": 16,
                                 "tp_size": 1
                         },
                         "decode": {
-                                "dp_size": 32,
+                                "dp_size": 16,
                                 "tp_size": 1
                         }
                 }
@@ -558,6 +566,7 @@ Before you start, please
 
         export ASCEND_BUFFER_POOL=4:8
         export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        export USE_MULTI_GROUPS_KV_CACHE=1
         export USE_MULTI_BLOCK_POOL=1
 
         export ASCEND_RT_VISIBLE_DEVICES=$1
@@ -572,32 +581,38 @@ Before you start, please
             --tensor-parallel-size $7 \
             --enable-expert-parallel \
             --seed 1024 \
-            --served-model-name deepseek_v4 \
-            --max-model-len 65536 \
+            --served-model-name auto \
+            --max-model-len 135000 \
             --max-num-batched-tokens 8192 \
             --max-num-seqs 4 \
             --no-disable-hybrid-kv-cache-manager \
             --no-enable-prefix-caching \
+            --safetensors-load-strategy 'prefetch' \
             --trust-remote-code \
+            --tokenizer-mode deepseek_v4 \
+            --tool-call-parser deepseek_v4 \
+            --enable-auto-tool-choice \
+            --reasoning-parser deepseek_v4 \
             --gpu-memory-utilization 0.85 \
             --quantization ascend \
-            --chat-template /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp/chat_template.jinja \
-            --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+            --profiler-config \
+                '{"profiler": "torch",
+                "torch_profiler_dir": "./vllm_profile",
+                "torch_profiler_with_stack": false}' \
             --enforce-eager \
-            --additional_config '{"enable_cpu_binding": "true"}' \
+            --additional_config '{"enable_cpu_binding": "True"}' \
             --kv-transfer-config \
-            '{"kv_connector": "MooncakeConnectorV1",
+            '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_producer",
-            "kv_port": "30100",
-            "engine_id": "1",
-            "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+            "kv_port": "30200",
+            "engine_id": "2",
             "kv_connector_extra_config": {
                         "prefill": {
                                 "dp_size": 16,
                                 "tp_size": 1
                         },
                         "decode": {
-                                "dp_size": 32,
+                                "dp_size": 16,
                                 "tp_size": 1
                         }
                 }
@@ -629,7 +644,9 @@ Before you start, please
         export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
         export HCCL_BUFFSIZE=1024
         export ASCEND_BUFFER_POOL=4:8
+        export DYNAMIC_EPLB="true"
 
+        export USE_MULTI_GROUPS_KV_CACHE=1
         export USE_MULTI_BLOCK_POOL=1
         export VLLM_ASCEND_ENABLE_FUSED_MC2=1
         export ASCEND_RT_VISIBLE_DEVICES=$1
@@ -644,37 +661,56 @@ Before you start, please
             --tensor-parallel-size $7 \
             --enable-expert-parallel \
             --seed 1024 \
-            --served-model-name deepseek_v4 \
-            --max-model-len 65536 \
-            --max-num-batched-tokens 144 \
-            --max-num-seqs 48 \
+            --served-model-name auto \
+            --max-model-len 135000 \
+            --max-num-batched-tokens 120 \
+            --max-num-seqs 60 \
             --async-scheduling \
             --no-disable-hybrid-kv-cache-manager \
             --no-enable-prefix-caching \
+            --safetensors-load-strategy 'prefetch' \
             --trust-remote-code \
+            --tokenizer-mode deepseek_v4 \
+            --tool-call-parser deepseek_v4 \
+            --enable-auto-tool-choice \
+            --reasoning-parser deepseek_v4 \
             --gpu-memory-utilization 0.88 \
             --quantization ascend \
-            --chat-template /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp/chat_template.jinja \
-            --speculative-config '{"num_speculative_tokens": 2, "method":"deepseek_mtp"}' \
-            --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY","cudagraph_capture_sizes":[144]}' \
+            --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+            --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
             --kv-transfer-config \
-            '{"kv_connector": "MooncakeConnectorV1",
+            '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_consumer",
-            "kv_port": "30200",
-            "engine_id": "2",
-            "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
+            "kv_port": "30300",
+            "engine_id": "3",
             "kv_connector_extra_config": {
                         "prefill": {
                                 "dp_size": 16,
                                 "tp_size": 1
                         },
                         "decode": {
-                                "dp_size": 32,
+                                "dp_size": 16,
                                 "tp_size": 1
                         }
                 }
             }' \
-            --additional_config '{"enable_cpu_binding": "true", "multistream_overlap_shared_expert": false, "multistream_dsa_preprocess": false}'
+            --additional-config '{
+                "ascend_compilation_config":{
+                    "enable_npugraph_ex":true,
+                    "enable_static_kernel":false
+                },
+                "eplb_config":{
+                    "dynamic_eplb":true,
+                    "expert_heat_collection_interval":600,
+                    "algorithm_execution_interval":50,
+                    "eplb_policy_type":2,
+                    "num_redundant_experts":16
+            },
+            "enable_cpu_binding":true,
+            "multistream_overlap_shared_expert":false,
+            "multistream_dsa_preprocess":false,
+            "recompute_scheduler_enable":true
+            }'
         ```
 
 Once the preparation is done, you can start the server with the following command on each node:

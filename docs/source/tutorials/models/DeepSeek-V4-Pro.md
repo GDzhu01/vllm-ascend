@@ -174,6 +174,7 @@ sysctl -w kernel.numa_balancing=0
 sysctl kernel.sched_migration_cost_ns=50000
 
 export USE_MULTI_GROUPS_KV_CACHE=1
+export USE_MULTI_BLOCK_POOL=1
 export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
 export VLLM_ASCEND_ENABLE_FUSED_MC2=1
 
@@ -187,7 +188,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --data-parallel-size 2 \
   --data-parallel-size-local 1 \
   --data-parallel-start-rank 0 \
-  --data-parallel-address xx.xx.xx.xx \
+  --data-parallel-address $node0_ip \
   --data-parallel-rpc-port 13399 \
   --tensor-parallel-size 16 \
   --enable-expert-parallel \
@@ -238,6 +239,7 @@ sysctl -w kernel.numa_balancing=0
 sysctl kernel.sched_migration_cost_ns=50000
 
 export USE_MULTI_GROUPS_KV_CACHE=1
+export USE_MULTI_BLOCK_POOL=1
 export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
 export VLLM_ASCEND_ENABLE_FUSED_MC2=1
 
@@ -251,7 +253,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --data-parallel-size 2 \
   --data-parallel-size-local 1 \
   --data-parallel-start-rank 1 \
-  --data-parallel-address xx.xx.xx.xx \
+  --data-parallel-address $node0_ip \
   --data-parallel-rpc-port 13399 \
   --tensor-parallel-size 16 \
   --enable-expert-parallel \
@@ -410,6 +412,7 @@ Before you start, please
 
         export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
         export USE_MULTI_GROUPS_KV_CACHE=1
+        export USE_MULTI_BLOCK_POOL=1
         export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
         export VLLM_ASCEND_ENABLE_FUSED_MC2=1
 
@@ -486,6 +489,7 @@ Before you start, please
 
         export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
         export USE_MULTI_GROUPS_KV_CACHE=1
+        export USE_MULTI_BLOCK_POOL=1
         export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
         export VLLM_ASCEND_ENABLE_FUSED_MC2=1
 
@@ -563,6 +567,7 @@ Before you start, please
         export ASCEND_BUFFER_POOL=4:8
 
         export USE_MULTI_GROUPS_KV_CACHE=1
+        export USE_MULTI_BLOCK_POOL=1
         export VLLM_ASCEND_ENABLE_FUSED_MC2=1
         export ASCEND_RT_VISIBLE_DEVICES=$1
 
