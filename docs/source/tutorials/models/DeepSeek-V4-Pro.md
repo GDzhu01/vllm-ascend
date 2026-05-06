@@ -1005,7 +1005,6 @@ Before you start, please
       export USE_MULTI_GROUPS_KV_CACHE=1
       export USE_MULTI_BLOCK_POOL=1
       export VLLM_USE_V1=1
-      export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
       export ASCEND_RT_VISIBLE_DEVICES=$1
       
       vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-mtp \
