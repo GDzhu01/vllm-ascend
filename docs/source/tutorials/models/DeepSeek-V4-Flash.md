@@ -628,7 +628,7 @@ python launch_online_dp.py --dp-size 32 --dp-size-local 16 --dp-rank-start 16 --
 
 Finally, Refer to [Prefill-Decode Disaggregation (Deepseek)](../features/pd_disaggregation_mooncake_multi_node.md) to deploy the P-D disaggregation proxy.
 
-For Atlas 800 A2 series machines, we can configure the deployment(4*1P 1*4D) as follows:.
+For Atlas 800 A2 series machines, we can configure the deployment(4\*1P 1\*4D) as follows:.
 
 Before you start, please
 
