@@ -850,7 +850,6 @@ For each P instance, only these two configuration values need to be modified: â€
         --max-num-seqs 30 \
         --async-scheduling \
         --no-disable-hybrid-kv-cache-manager \
-        --no-enable-prefix-caching \
         --trust-remote-code \
         --gpu-memory-utilization 0.9 \
         --quantization ascend \
