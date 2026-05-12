@@ -11,22 +11,10 @@ from vllm.v1.core.single_type_kv_cache_manager import (
 from vllm.v1.kv_cache_interface import KVCacheSpec, AttentionSpec, FullAttentionSpec, MLAAttentionSpec
 from vllm.v1.request import Request
 
-from vllm_ascend.core.kv_cache_spec import (CompressAttentionSpec, # --
-                                            Compress4AttentionSpec,
-                                            Compress128AttentionSpec,
-                                            SWAAttentionSpec,  # --
-                                            C4AttnKVStateSpec,
-                                            C4AttnScoreStateSpec,
-                                            C128AttnKVStateSpec,
-                                            C128AttnScoreStateSpec,
-                                            C4IndexerKVStateSpec,
-                                            C4IndexerScoreStateSpec,
-                                            C4IndexerSpec)
-
 
 class CompressAttentionManager(FullAttentionManager):
 
-    def __init__(self, kv_cache_spec: CompressAttentionSpec,
+    def __init__(self, kv_cache_spec: MLAAttentionSpec,
                  block_pool: BlockPool, **kwargs) -> None:
         super().__init__(kv_cache_spec, block_pool, **kwargs)
         self.compress_ratio = kv_cache_spec.compress_ratio
@@ -221,20 +209,8 @@ class CompressAttentionManager(FullAttentionManager):
 
 def get_manager_for_kv_cache_spec(kv_cache_spec: KVCacheSpec,
                                   **kwargs) -> SingleTypeKVCacheManager:
-    spec_manager_map.update({
-        Compress4AttentionSpec: CompressAttentionManager,
-        Compress128AttentionSpec: CompressAttentionManager,
-        SWAAttentionSpec: SlidingWindowManager,
-        C4AttnKVStateSpec: SlidingWindowManager,
-        C4AttnScoreStateSpec: SlidingWindowManager,
-        C128AttnKVStateSpec: SlidingWindowManager,
-        C128AttnScoreStateSpec: SlidingWindowManager,
-        C4IndexerKVStateSpec: SlidingWindowManager,
-        C4IndexerScoreStateSpec: SlidingWindowManager,
-        C4IndexerSpec: CompressAttentionManager
-    })
-    # TODO(qcs): remove the unused classes
-    spec_manager_map[MLAAttentionSpec] = CompressAttentionManager
     manager_class = spec_manager_map[type(kv_cache_spec)]
+    if isinstance(kv_cache_spec, MLAAttentionSpec) and kv_cache_spec.compress_ratio > 1:
+        manager_class = CompressAttentionManager
     manager = manager_class(kv_cache_spec, **kwargs)
     return manager

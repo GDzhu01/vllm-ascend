@@ -109,20 +109,6 @@ from vllm_ascend.compilation.acl_graph import (
     set_graph_params,
     update_full_graph_params,
 )
-from vllm_ascend.core.kv_cache_spec import (CompressAttentionSpec,
-                                            Compress4AttentionSpec,
-                                            Compress128AttentionSpec,
-                                            # ------------- state -------------
-                                            C128AttnKVStateSpec,
-                                            C128AttnScoreStateSpec,
-                                            C4AttnKVStateSpec,
-                                            C4AttnScoreStateSpec,
-                                            C4IndexerKVStateSpec,
-                                            C4IndexerScoreStateSpec,
-                                            # ---------------------------------
-                                            C4IndexerSpec,
-                                            SWAAttentionSpec,
-                                            )
 from vllm_ascend.models.layer.attention.layer import DSAAttention
 from vllm_ascend.attention.dsa_v1 import AscendDSAMetadataBuilder
 from vllm_ascend.eplb.adaptor.vllm_adaptor import VllmEplbAdaptor
@@ -312,6 +298,8 @@ class NPUModelRunner(GPUModelRunner):
         # Set up Attention
         self.use_sparse = hasattr(vllm_config.model_config, "hf_text_config") and hasattr(
             vllm_config.model_config.hf_text_config, "index_topk"
+        ) and not hasattr(
+            vllm_config.model_config.hf_text_config, "compress_ratios"
         )
         if self.use_sparse:
             self.sparse_head_dim = (

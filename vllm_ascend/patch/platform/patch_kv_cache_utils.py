@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Ascend project
 import math
-from collections import defaultdict
 
 import vllm.v1.core.kv_cache_utils
 from vllm.config import VllmConfig
-from vllm.utils.math_utils import cdiv, round_up
-from vllm.v1.core.kv_cache_utils import _approximate_gcd
 from vllm.v1.kv_cache_interface import (
+    ChunkedLocalAttentionSpec,
+    FullAttentionSpec,
     KVCacheConfig,
     KVCacheGroupSpec,
     KVCacheSpec,
+    KVCacheTensor,
+    MambaSpec,
     MLAAttentionSpec,
     SlidingWindowMLASpec,
+    SlidingWindowSpec,
     UniformTypeKVCacheSpecs,
 )
 
@@ -61,11 +63,15 @@ def group_and_unify_kv_cache_specs(
     Group the KV cache specs and unify each group into one UniformTypeKVCacheSpecs.
     Currently, this is only used for DeepseekV4.
     """
-    if not any(isinstance(spec, SlidingWindowMLASpec) for spec in kv_cache_spec.values()):
+    if not any(
+        isinstance(spec, SlidingWindowMLASpec) for spec in kv_cache_spec.values()
+    ):
         return None
 
     ratio_specs: dict[int, dict[str, KVCacheSpec]] = defaultdict(dict)
-    grouped_swa_mla_specs: dict[int, dict[str, KVCacheSpec]] = defaultdict(dict)
+    grouped_swa_mla_specs: dict[int, dict[str, KVCacheSpec]] = defaultdict(
+        dict
+    )
     for name, spec in kv_cache_spec.items():
         if isinstance(spec, SlidingWindowMLASpec):
             grouped_swa_mla_specs[spec.block_size][name] = spec
@@ -85,7 +91,9 @@ def group_and_unify_kv_cache_specs(
         assert uniform_spec is not None
         swa_uniform_specs.append(uniform_spec)
 
-    return [*mla_uniform_specs, *swa_uniform_specs]
+    return [*mla_uniform_specs, 
+            *swa_uniform_specs
+            ]
 
 
 def _get_kv_cache_groups_uniform_groups(
@@ -94,13 +102,18 @@ def _get_kv_cache_groups_uniform_groups(
     """
     Generate the KV cache groups from the grouped specs.
     """
-    assert len(grouped_specs) > 0 and all(isinstance(spec, UniformTypeKVCacheSpecs) for spec in grouped_specs)
+    assert len(grouped_specs) > 0 and all(
+        isinstance(spec, UniformTypeKVCacheSpecs) for spec in grouped_specs
+    )
     # For now, we restrict the first grouped_spec to be UniformTypeKVCacheSpecs
     # containing only MLAAttentionSpec.
     full_mla_spec = grouped_specs[0]
     full_mla_c128_spec = grouped_specs[1]
 
-    assert all(isinstance(spec, MLAAttentionSpec) for spec in full_mla_spec.kv_cache_specs.values())
+    assert all(
+        isinstance(spec, MLAAttentionSpec)
+        for spec in full_mla_spec.kv_cache_specs.values()
+    )
     full_mla_group = KVCacheGroupSpec(
         layer_names=list(full_mla_spec.kv_cache_specs.keys()),
         kv_cache_spec=full_mla_spec,
@@ -117,17 +130,26 @@ def _get_kv_cache_groups_uniform_groups(
     # The other uniform KV cache specs will be similarly partitioned into layer tuples.
     # Say we have 21 SWA layers, all with the same page size, then we will have "21"
     # layer tuples.
-    num_layer_tuples_per_group: list[int] = [g_spec.get_num_layer_tuples() for g_spec in grouped_specs]
+    num_layer_tuples_per_group: list[int] = [
+        g_spec.get_num_layer_tuples() for g_spec in grouped_specs
+    ]
     # Choose `num_layer_tuples` to minimize total padding across groups.
-    num_layer_tuples = _approximate_gcd(num_layer_tuples_per_group, lower_bound=num_layer_tuples_per_group[0])
+    num_layer_tuples = _approximate_gcd(
+        num_layer_tuples_per_group, lower_bound=num_layer_tuples_per_group[0]
+    )
     # Round up to the nearest multiple of `num_layer_tuples` (i.e., padding)
-    num_layer_tuples_per_group = [round_up(x, num_layer_tuples) for x in num_layer_tuples_per_group]
+    num_layer_tuples_per_group = [
+        round_up(x, num_layer_tuples) for x in num_layer_tuples_per_group
+    ]
+
 
     # TODO(cmq): this is not general enough
     swa_mla_specs = grouped_specs[2:]
 
     assert all(
-        isinstance(spec, SlidingWindowMLASpec) for group in swa_mla_specs for spec in group.kv_cache_specs.values()
+        isinstance(spec, SlidingWindowMLASpec)
+        for group in swa_mla_specs
+        for spec in group.kv_cache_specs.values()
     )
 
     # Split each SWA UniformKV group into smaller groups to align their #(layer tuples)
@@ -166,8 +188,12 @@ def _get_kv_cache_groups_uniform_groups(
         for i in range(num_tuple_groups):
             group_layer_tuples = layer_tuples[i::num_tuple_groups]
             # Flatten tuples and build dict for from_specs
-            group_layer_names = [name for layer_tuple in group_layer_tuples for name in layer_tuple]
-            group_layer_specs = {name: sm_spec.kv_cache_specs[name] for name in group_layer_names}
+            group_layer_names = [
+                name for layer_tuple in group_layer_tuples for name in layer_tuple
+            ]
+            group_layer_specs = {
+                name: sm_spec.kv_cache_specs[name] for name in group_layer_names
+            }
             sub_sm_spec = UniformTypeKVCacheSpecs.from_specs(group_layer_specs)
             assert sub_sm_spec is not None
             swa_mla_groups.append(
@@ -180,9 +206,8 @@ def _get_kv_cache_groups_uniform_groups(
     return [full_mla_group, full_mla_c128_group, *swa_mla_groups]
 
 
+
 vllm.v1.core.kv_cache_utils.resolve_kv_cache_block_sizes = _ascend_resolve_kv_cache_block_sizes
-vllm.v1.core.kv_cache_utils.group_and_unify_kv_cache_specs = group_and_unify_kv_cache_specs
-vllm.v1.core.kv_cache_utils._get_kv_cache_groups_uniform_groups = _get_kv_cache_groups_uniform_groups
 
 # Also patch the reference used by engine/core.py which imports the function directly.
 import vllm.v1.engine.core  # noqa: E402

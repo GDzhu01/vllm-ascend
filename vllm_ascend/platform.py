@@ -598,7 +598,7 @@ class NPUPlatform(Platform):
             "vllm_ascend.attention.attention_v1.AscendAttentionBackend",
             (True, True, False):
             "vllm_ascend.attention.sfa_v1.AscendSFABackend",
-            (True, True, True):
+            (True, False, True):
             "vllm_ascend.attention.dsa_v1.AscendDSABackend",
         }
         backend_map_310 = {

@@ -13,12 +13,12 @@ from vllm.config import CacheConfig, get_current_vllm_config
 from vllm.config.vllm import VllmConfig
 from vllm.logger import init_logger
 from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
-from vllm.model_executor.layers.batch_invariant import vllm_is_batch_invariant
+# from vllm.model_executor.layers.batch_invariant import vllm_is_batch_invariant
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.platforms import current_platform
 from vllm.utils.torch_utils import kv_cache_dtype_str_to_dtype
 from vllm.v1.kv_cache_interface import KVCacheSpec, MLAAttentionSpec
-from vllm.v1.attention.backends.mla.sparse_swa import SVFSWACache
+from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
 
 from vllm_ascend.attention.abstract import DSAAttentionImpl
 from vllm_ascend.patch.platform.patch_selector import get_attn_backend
@@ -73,7 +73,7 @@ class DSAAttention(nn.Module, AttentionLayerBase):
         self.compress_ratio = compress_ratio
         self.layer_name = prefix
         self.head_size = self.head_dim
-        self.swa_cache_layer: SVFSWACache = extra_impl_args.get("swa_cache_layer", None)
+        self.swa_cache_layer: DeepseekV4SWACache = extra_impl_args.get("swa_cache_layer", None)
 
         assert self.swa_cache_layer is not None
 
@@ -96,12 +96,12 @@ class DSAAttention(nn.Module, AttentionLayerBase):
             kv_cache_dtype,
             block_size,
             use_mla=True,
-            use_sparse=True,
+            use_sparse=False,
             use_compress=True,
         )
 
+        # NOTE(zxr): vllm_is_batch_invariant is delete during updating to v0.20.1
         if (cache_config is not None and cache_config.enable_prefix_caching
-                and vllm_is_batch_invariant()
                 and (self.attn_backend.get_name() == "TRITON_MLA"
                      or self.attn_backend.get_name() == "FLASHINFER")):
             logger.warning_once(
@@ -167,7 +167,7 @@ class DSAAttention(nn.Module, AttentionLayerBase):
         return self.attn_backend
 
     def get_kv_cache_spec(self, vllm_config: VllmConfig) -> KVCacheSpec:
-        if self.compress_ratio <= 1:  # SWA part. Allocated separately as SVFSWACache.
+        if self.compress_ratio <= 1:  # SWA part. Allocated separately as DeepseekV4SWACache.
             return None
         kv_cache_dtype = kv_cache_dtype_str_to_dtype(self.kv_cache_dtype,
                                                      vllm_config.model_config)

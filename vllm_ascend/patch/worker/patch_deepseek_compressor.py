@@ -11,7 +11,7 @@ from vllm.model_executor.models.deepseek_v2 import DeepseekV32IndexerCache
 from vllm.config.cache import CacheConfig
 from typing import TYPE_CHECKING
 from vllm_ascend.patch.platform.patch_kv_cache_interface import AscendMLAAttentionSpec
-from vllm.v1.attention.backends.mla.sparse_swa import SVFSWACache
+from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
 
 from vllm.config import VllmConfig
 from vllm_ascend.attention.dsa_v1 import AscendDSABackend
@@ -103,7 +103,7 @@ class AscendDeepseekV32IndexerCache(DeepseekV32IndexerCache):
         return AscendDSABackend
 
 
-class AscendSVFSWACache(SVFSWACache):
+class AscendDeepseekV4SWACache(DeepseekV4SWACache):
     def __init__(
         self,
         head_dim: int,
@@ -112,7 +112,8 @@ class AscendSVFSWACache(SVFSWACache):
         prefix: str,
         cache_config: CacheConfig,
     ):
-        super().__init__(head_dim, window_size, dtype, prefix, cache_config)
+        super().__init__(head_dim, window_size, torch.uint8, prefix, cache_config)
+        self.dtype = dtype
 
         # Block size is constrained by tensor sharing between SWA and C4A KV blocks.
         # Since both block types share the same physical tensor, they must use the
@@ -141,5 +142,4 @@ class AscendSVFSWACache(SVFSWACache):
 
 vllm.model_executor.layers.deepseek_compressor.CompressorStateCache = AscendCompressorStateCache
 vllm.model_executor.models.deepseek_v2.DeepseekV32IndexerCache = AscendDeepseekV32IndexerCache
-vllm.v1.attention.backends.mla.sparse_swa.SVFSWACache = AscendSVFSWACache
-
+vllm.v1.attention.backends.mla.sparse_swa.DeepseekV4SWACache = AscendDeepseekV4SWACache
