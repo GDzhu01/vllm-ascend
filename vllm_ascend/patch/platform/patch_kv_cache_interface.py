@@ -7,8 +7,14 @@ import torch
 import vllm.model_executor.layers.attention.mla_attention
 import vllm.v1.kv_cache_interface
 from typing_extensions import Self
+from vllm.utils.math_utils import round_up
 from vllm.utils.torch_utils import get_dtype_size
-from vllm.v1.kv_cache_interface import MLAAttentionSpec
+from vllm.v1.kv_cache_interface import (
+    SlidingWindowMLASpec,
+    MLAAttentionSpec,
+)
+
+from vllm_ascend.utils import AscendDeviceType, get_ascend_device_type
 
 
 @dataclass(frozen=True)
@@ -37,6 +43,8 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
        and is therefore saved in kv_cache[3].
     """
 
+    scale_dim: int = 0
+    scale_dtype: torch.dtype = torch.int8
     sparse_head_dim: tuple[int, ...] | None = None
     cache_sparse_c8: bool = False
     c8_k_cache_dtype: torch.dtype = torch.int8
@@ -62,7 +70,7 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
             )
             return k_pe_nope_bytes + indexer_k_bytes + indexer_k_scale_bytes
 
-        return self.block_size * self.num_kv_heads * self.head_size * get_dtype_size(self.dtype)
+        return self.block_size * self.num_kv_heads * (self.head_size * get_dtype_size(self.dtype) + self.scale_dim * get_dtype_size(self.scale_dtype))
 
     @property
     def sparse_kv_cache_ratio(self) -> tuple[float, float, float, float | None]:
@@ -140,5 +148,25 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
         )
 
 
+def _init_mla_cache_fields(spec: MLAAttentionSpec | SlidingWindowMLASpec):
+    """Shared MLA cache init logic for quantiztion format across different models."""
+    FP8_DTYPE = "fp8_ds_mla"
+    MODEL_VERSIONS = ["v32", "svf"]
+    if spec.cache_dtype_str != FP8_DTYPE:
+        return
+    assert spec.model_version in MODEL_VERSIONS, "Invalid model version."
+    assert (spec.model_version == "v32" and spec.compress_ratio == 1) or (
+        spec.model_version == "svf" and spec.compress_ratio in [0, 4, 128]
+    ), "Invalid compress ratio."
+    if spec.compress_ratio > 1:
+        assert spec.block_size % spec.compress_ratio == 0, (
+            f"Block size {spec.block_size} must be divisible by compress ratio."
+        )
+
+    # See `vllm/v1/attention/backends/mla/flashmla_sparse.py`
+    #  for details.
+
+
 vllm.v1.kv_cache_interface.MLAAttentionSpec = AscendMLAAttentionSpec
 vllm.model_executor.layers.attention.mla_attention.MLAAttentionSpec = AscendMLAAttentionSpec
+vllm.v1.kv_cache_interface._init_mla_cache_fields = _init_mla_cache_fields

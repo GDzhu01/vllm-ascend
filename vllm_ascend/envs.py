@@ -112,6 +112,9 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
+    # Whether to use MultiBlockPool for KV cache management
+    "USE_MULTI_BLOCK_POOL":
+    lambda: bool(int(os.getenv("USE_MULTI_BLOCK_POOL", '0'))),
 }
 
 # end-env-vars-definition

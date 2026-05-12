@@ -224,6 +224,14 @@ def _create_remaining_args_delta(
     )
 
 
+def _make_tool_parsers(
+    tool_parser_factory,
+    tokenizer: TokenizerLike,
+    num_choices: int,
+) -> list[ToolParser | None]:
+    return [tool_parser_factory(tokenizer) for _ in range(num_choices)]
+
+
 def _merge_delta_messages(
     pending_delta: DeltaMessage | None,
     message: DeltaMessage | None,

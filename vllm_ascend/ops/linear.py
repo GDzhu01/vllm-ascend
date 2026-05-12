@@ -37,6 +37,9 @@ from vllm.model_executor.layers.linear import (  # noqa
     UnquantizedLinearMethod,
 )
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
+from vllm.model_executor.layers.utils import (
+    dispatch_unquantized_gemm,
+)
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.utils.torch_utils import direct_register_custom_op
 
@@ -75,6 +78,9 @@ class AscendUnquantizedLinearMethod(UnquantizedLinearMethod):
 
     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
         super().process_weights_after_loading(layer)
+        # must use fp32 to avoid accuracy degradation in dsv4.
+        if layer.prefix.endswith(".gate"):
+            layer.weight_fp32 = maybe_trans_nz(layer.weight.data.to(torch.float32))
         if "conv1d" not in layer.prefix:
             layer.weight.data = maybe_trans_nz(layer.weight.data)
 
@@ -84,7 +90,7 @@ class AscendUnquantizedLinearMethod(UnquantizedLinearMethod):
         x: torch.Tensor,
         bias: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return torch.ops.vllm.unquantized_gemm(x, layer.weight, bias)
+        return dispatch_unquantized_gemm()(layer, x, layer.weight, bias)
 
 
 # TODO(realliujiaxu): Remove this class after linear of vllm supports custom comm group
@@ -267,6 +273,7 @@ class AscendRowParallelLinear(RowParallelLinear):
         input_is_parallel: bool = True,
         skip_bias_add: bool = False,
         params_dtype: torch.dtype | None = None,
+        out_dtype: torch.dtype | None = None,
         reduce_results: bool = True,
         quant_config: QuantizationConfig | None = None,
         prefix: str = "",
@@ -291,6 +298,7 @@ class AscendRowParallelLinear(RowParallelLinear):
         self.input_size_per_partition = divide(input_size, self.tp_size)
         self.output_size_per_partition = output_size
         self.output_partition_sizes = [output_size]
+        self.out_dtype = out_dtype
 
         AscendLinearBase.__init__(
             self,
@@ -428,6 +436,12 @@ class AscendColumnParallelLinear(ColumnParallelLinear):
 
         if self.custom_op is not None:
             self.custom_op.update_attrs()
+        self.prefix = prefix
+        if "wo_a" in prefix:
+            hf_config = get_current_vllm_config().model_config.hf_text_config
+            self.n_local_groups = getattr(hf_config, "o_groups",
+                                          0) // self.tp_size
+            self.o_lora_rank = getattr(hf_config, "o_lora_rank", 0)
 
     def forward(
         self,
@@ -437,6 +451,13 @@ class AscendColumnParallelLinear(ColumnParallelLinear):
             return self.custom_op.apply(input_)
 
         return super().forward(input_)
+
+    def weight_loader(self, param: Parameter, loaded_weight: torch.Tensor):
+        super().weight_loader(param, loaded_weight)
+        if "wo_a" in self.prefix:
+            self.weight.data = self.weight.data.view(
+                self.n_local_groups, self.o_lora_rank,
+                -1).transpose(2, 1).contiguous()
 
 
 class AscendReplicatedLinear(ReplicatedLinear):
