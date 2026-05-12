@@ -30,7 +30,7 @@ from vllm.forward_context import ForwardContext, get_forward_context
 from vllm.model_executor.layers.mla import MultiHeadLatentAttentionWrapper
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.utils.torch_utils import direct_register_custom_op
-from vllm.v1.attention.backends.mla.sparse_swa import SVFSWACache
+from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
 from vllm_ascend.utils import (
     AscendDeviceType,
     get_ascend_device_type,
@@ -112,7 +112,7 @@ class AscendDeepseekSparseAttention(MultiHeadLatentAttentionWrapper):
 
         ascend_device_type = get_ascend_device_type()
         k_dtype = torch.fp8 if ascend_device_type == AscendDeviceType.A5 else torch.bfloat16
-        self.swa_cache_layer = SVFSWACache(
+        self.swa_cache_layer = DeepseekV4SWACache(
             head_dim=self.head_dim,
             window_size=self.window_size,
             dtype=k_dtype,

@@ -46,7 +46,10 @@ def is_deepseek_mla(self) -> bool:
         "pangu_ultra_moe_mtp",
         "bailing_hybrid",
     ):
-        return getattr(self.hf_text_config, "kv_lora_rank", None) is not None
+        if hasattr(self.hf_text_config, "compress_ratios"):
+            return getattr(self.hf_text_config, "head_dim", None) is not None
+        else:
+            return getattr(self.hf_text_config, "kv_lora_rank", None) is not None
     elif self.hf_text_config.model_type == "eagle":
         # if the model is an EAGLE module, check for the
         # underlying architecture
