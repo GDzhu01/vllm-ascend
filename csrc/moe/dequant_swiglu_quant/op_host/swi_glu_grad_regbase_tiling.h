@@ -9,6 +9,7 @@
  */
 
 /*!
+<<<<<<<< HEAD:csrc/moe/dequant_swiglu_quant/op_host/swi_glu_grad_regbase_tiling.h
  * \file swi_glu_grad_regbase_tiling.h
  * \brief
  */
@@ -25,3 +26,25 @@ struct GluBaseTilingData {
     int64_t colTileNum;
     int64_t usedCoreNum;
 };
+========
+ * \file tiling_util.cpp
+ * \brief
+ */
+
+#include "../tiling_base/tiling_util.h"
+namespace Ops {
+namespace Transformer {
+namespace OpTiling {
+static const gert::Shape g_vec_1_shape = {1};
+
+const gert::Shape &EnsureNotScalar(const gert::Shape &inShape)
+{
+    if (inShape.IsScalar()) {
+        return g_vec_1_shape;
+    }
+    return inShape;
+}
+} // namespace OpTiling
+} // namespace Transformer
+} // namespace Ops
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/causal_conv1d/op_host/tiling_util.cpp

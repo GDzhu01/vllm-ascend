@@ -55,7 +55,7 @@ struct RunInfo {
 
     uint32_t actS1Size = 1;
     uint32_t actS2Size = 1;
-    uint32_t actS2SizeOrig = 1;
+    uint32_t actS2SizeOrig = 1;    
     uint32_t actMBaseSize;
     uint32_t actualSingleProcessSInnerSize;
     uint32_t actualSingleProcessSInnerSizeAlign;

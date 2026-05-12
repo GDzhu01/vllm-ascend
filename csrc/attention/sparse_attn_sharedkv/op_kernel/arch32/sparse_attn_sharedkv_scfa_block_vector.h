@@ -403,7 +403,7 @@ __aicore__ inline void SASVectorBlock<SAST>::ProcessLse(const RunInfo &info, con
     dataCopyParams.blockLen = mSplitInfo.vecDealM * sizeof(T);
     dataCopyParams.srcStride = 0;
     dataCopyParams.dstStride = 0;
-
+    
     WaitFlag<AscendC::HardEvent::MTE3_V>(SYNC_OUTPUT_BUF2_FLAG);
     PipeBarrier<PIPE_V>();
     Log(outLSETensor, sumTensor, mSplitInfo.vecDealM);
@@ -411,7 +411,7 @@ __aicore__ inline void SASVectorBlock<SAST>::ProcessLse(const RunInfo &info, con
     Add(outLSETensor, outLSETensor, maxTensor, mSplitInfo.vecDealM);
     SetFlag<AscendC::HardEvent::V_MTE3>(SYNC_OUTPUT_BUF2_FLAG);
     WaitFlag<AscendC::HardEvent::V_MTE3>(SYNC_OUTPUT_BUF2_FLAG);
-
+    
     DataCopyPad(softmaxLseGm[lseOffset], outLSETensor, dataCopyParams);
     SetFlag<AscendC::HardEvent::MTE3_V>(SYNC_OUTPUT_BUF2_FLAG);
 }
@@ -552,7 +552,7 @@ __aicore__ inline int64_t SASVectorBlock<SAST>::GetKeyGmOffset(int64_t realS2Idx
         realKeyGmOffset = runInfo.bIdx * constInfo.kvSeqSize / constInfo.cmpRatio * constInfo.kvHeadNum + realS2Idx * constInfo.kvHeadNum;
     } else if constexpr (KV_LAYOUT_T == SAS_LAYOUT::TND) {
         realKeyGmOffset = (runInfo.tensorCmpBOffset + realS2Idx * constInfo.kvHeadNum * constInfo.headDim) /
-	                           constInfo.headDim;
+ 	                           constInfo.headDim;
     }
     return realKeyGmOffset;
 }
@@ -608,7 +608,7 @@ __aicore__ inline void SASVectorBlock<SAST>::CopyInKv(int64_t &mte2Size, int64_t
                         (keyOffset2 - keyOffset1)) - constInfo.sparseBlockSize) * constInfo.headDim * sizeof(KV_T);
     } else if constexpr (KV_LAYOUT_T == SAS_LAYOUT::TND) {
         keySrcStride = ((keyOffset1 > keyOffset2 ? (keyOffset1 - keyOffset2) :
-	                    (keyOffset2 - keyOffset1)) - constInfo.sparseBlockSize) * constInfo.headDim * sizeof(KV_T);
+ 	                    (keyOffset2 - keyOffset1)) - constInfo.sparseBlockSize) * constInfo.headDim * sizeof(KV_T);
     }
     if (unlikely(keySrcStride >= INT32_MAX || keySrcStride < 0 ||
         realS2Idx1 + constInfo.sparseBlockSize >= s2IdLimit ||

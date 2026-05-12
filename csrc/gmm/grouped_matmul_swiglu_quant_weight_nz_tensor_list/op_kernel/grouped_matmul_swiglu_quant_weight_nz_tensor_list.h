@@ -38,7 +38,7 @@ class GMMSwigluCompute{
                                 GM_ADDR groupList, GM_ADDR quantOutput, GM_ADDR quantScaleOutput,
                                 GM_ADDR workspace,
                                 const GMMSwigluTensorListBaseParams* __restrict gmmBaseParamsIN,
-                                const TCubeTiling* __restrict mmTilingDataIN,
+                                const TCubeTiling* __restrict mmTilingDataIN, 
                                 const GMMSwigluTensorList* __restrict gmmSwigluIN, TPipe* tPipeIN);
     __aicore__ inline void Process();
  private:
@@ -61,11 +61,11 @@ class GMMSwigluCompute{
     __aicore__ inline void PreLoadTokenAndChannel(LocalTensor<float>& channelScaleLocal);
     __aicore__ inline void UpdateVecConfig(uint32_t blockIdx, VecConfig& vecConfig);
     __aicore__ inline void customDataCopyIn(uint32_t outLoopIdx);
-    __aicore__ inline void customDataCopyOut();
-    __aicore__ inline void Dequant(uint32_t loopidx);
-    __aicore__ inline void Quant(uint32_t loopidx);
+    __aicore__ inline void customDataCopyOut();   
+    __aicore__ inline void Dequant(uint32_t loopidx);  
+    __aicore__ inline void Quant(uint32_t loopidx); 
     __aicore__ inline void Swiglu(uint32_t loopidx);
- private:
+ private: 
     typename mmType::MT& mm;
     const GMMSwigluTensorListBaseParams* __restrict gmmBaseParams;
     const GMMSwigluTensorList* __restrict gmmSwigluTensorList;
@@ -86,7 +86,7 @@ class GMMSwigluCompute{
     TQue<QuePosition::VECOUT, 1> quantOutQueue;
     TQue<QuePosition::VECOUT, 1> quantScaleOutQueue;
     TBuf<TPosition::VECCALC> reduceWorkspace;
-    TBuf<TPosition::VECCALC> castWorkspace;
+    TBuf<TPosition::VECCALC> castWorkspace; 
     bool sequentialWrite = true;
     uint32_t cubeNum;  // Matmul completions on the kernel
     uint32_t groupNum; // Matmul completions on the kernel
@@ -103,9 +103,9 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Init(GM_ADD
                                                             GM_ADDR groupList, GM_ADDR quantOutput, GM_ADDR quantScaleOutput,
                                                             GM_ADDR workspace,
                                                             const GMMSwigluTensorListBaseParams* __restrict gmmSwigluTensorListBaseParamsIn,
-                                                            const TCubeTiling* __restrict mmTilingDataIN,
+                                                            const TCubeTiling* __restrict mmTilingDataIN, 
                                                             const GMMSwigluTensorList* __restrict gmmSwigluIN, TPipe* tPipeIN)
-{
+{   
     aicCoreNum = GetBlockNum();
     aivCoreNum = aicCoreNum * 2;
     blockIdx = GetBlockIdx();
@@ -162,7 +162,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Process() {
         }
         SyncAll<false>();
     }
-
+    
     if ASCEND_IS_AIV {
         UpdateVecConfig(blockIdx, vecConfig);
         if (blockIdx < vecConfig.usedCoreNum) {
@@ -312,8 +312,8 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::UpdateVecCo
     vecConfig.usedCoreNum = vecConfig.M >= aivCoreNum ? aivCoreNum : vecConfig.M;
     uint32_t tailCoreIdx = vecConfig.M - (eachCoreTaskNum - 1) * vecConfig.usedCoreNum;
     vecConfig.taskNum = blockIdx < tailCoreIdx ? eachCoreTaskNum : eachCoreTaskNum - 1;
-    vecConfig.startIdx = blockIdx < tailCoreIdx
-                            ? eachCoreTaskNum * blockIdx
+    vecConfig.startIdx = blockIdx < tailCoreIdx 
+                            ? eachCoreTaskNum * blockIdx 
                             :((eachCoreTaskNum - 1) * blockIdx + tailCoreIdx);
     vecConfig.curIdx = vecConfig.startIdx;
     vecConfig.startOffset = vecConfig.startIdx * gmmSwigluTensorList->tokenLen;
@@ -332,8 +332,8 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::UpdateVecCo
     }
     // Step 3: Calculate total data volume
     vecConfig.outLoopNum = (vecConfig.taskNum + gmmSwigluTensorList->maxProcessRowNum - 1) / gmmSwigluTensorList->maxProcessRowNum;
-    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluTensorList->maxProcessRowNum
-                            ? vecConfig.taskNum % gmmSwigluTensorList->maxProcessRowNum
+    vecConfig.tailLoopNum = vecConfig.taskNum % gmmSwigluTensorList->maxProcessRowNum 
+                            ? vecConfig.taskNum % gmmSwigluTensorList->maxProcessRowNum 
                             : gmmSwigluTensorList->maxProcessRowNum;
     pipe->Reset();
     // Step 4: Allocate space
@@ -346,19 +346,19 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::UpdateVecCo
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
-__aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataCopyIn(uint32_t outLoopIdx)
+__aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataCopyIn(uint32_t outLoopIdx) 
 {
     LocalTensor<int32_t> _inMMLocal_0 = mmOutQueue.DeQue<int32_t>();
     DataCopyExtParams copyParams_0{1, static_cast<uint32_t>(vecConfig.innerLoopNum * gmmSwigluTensorList->tokenLen * sizeof(int32_t)), 0, 0, 0};
     DataCopyPadExtParams<int32_t> padParams_0{false, 0 ,0, 0};
     DataCopyPad(_inMMLocal_0, mmOutGM[vecConfig.curOffset], copyParams_0, padParams_0);
-
+    
     mmOutQueue.EnQue(_inMMLocal_0);
-
+    
     LocalTensor<int32_t> _inMMLocal_1 = mmOutQueue.DeQue<int32_t>();
-
+    
     Cast(_inMMLocal_1.ReinterpretCast<float>(), _inMMLocal_1, RoundMode::CAST_NONE, vecConfig.innerLoopNum * gmmSwigluTensorList->tokenLen);
-
+    
     mmOutQueue.EnQue(_inMMLocal_1);
     LocalTensor<float> _inMMLocal_2 = mmOutQueue.DeQue<float>();
     set_flag(PIPE_S, PIPE_V, EVENT_ID0);
@@ -394,7 +394,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::UpdateChann
         LocalTensor<float> _inChannel = perChannelScaleInQueue.DeQue<float>();
         DataCopyExtParams copyParams{1, static_cast<uint32_t>(gmmSwigluTensorList->tokenLen * sizeof(DTYPE_CS)), 0, 0, 0};
         DataCopyPadExtParams<DTYPE_CS> padParams{false, 0 ,0, 0};
-
+        
         GlobalTensor<CHANNELDTYPE> perChannelScaleTensor;
         perChannelScaleTensor.SetGlobalBuffer(GetTensorAddr<CHANNELDTYPE>(vecConfig.curGroupIdx, perChannelScalePtr));
 
@@ -461,7 +461,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Quant(uint3
         gmmSwigluTensorList->tokenLen / BISECT);
     LocalTensor<float> workspaceLocal= reduceWorkspace.Get<float>();
     PipeBarrier<PIPE_V>();
-    ReduceMaxTemplate(workspaceLocal,
+    ReduceMaxTemplate(workspaceLocal, 
         _inMMLocal, loopIdx * gmmSwigluTensorList->tokenLen + gmmSwigluTensorList->tokenLen / BISECT, gmmSwigluTensorList->tokenLen / BISECT);
     PipeBarrier<PIPE_ALL>();
     float quantScale = workspaceLocal.GetValue(0) / QUANT_SCALE_INT8;

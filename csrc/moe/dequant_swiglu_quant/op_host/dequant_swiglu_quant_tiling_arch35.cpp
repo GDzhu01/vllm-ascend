@@ -86,9 +86,9 @@ static const std::map<std::string, int64_t> SUPPORT_QUANT_MODE = {{"dynamic", 1}
 // 定义bias支持的所有类型
 static const std::set<ge::DataType> BIAS_SUPPORT_DTYPE = {ge::DT_INT32, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_FLOAT};
 static const std::map<ge::DataType, int64_t> SUPPORT_BIAS_MODE = {{ge::DT_INT32, 1}, {ge::DT_BF16, 2}, {ge::DT_FLOAT16, 3}, {ge::DT_FLOAT, 4}};
-// 定义quant_scale支持的所有类型
+// 定义quant_scale支持的所有类型 
 static const std::set<ge::DataType> QUANT_SCALE_SUPPORT_DTYPE = {ge::DT_FLOAT};
-// 定义quant_offset支持的所有类型
+// 定义quant_offset支持的所有类型 
 static const std::set<ge::DataType> QUANT_OFFSET_SUPPORT_DTYPE = {ge::DT_FLOAT};
 // 定义输出y支持的所有类型:int8, hifloat8, float8的两种类型, float4的两种类型
 static const std::set<ge::DataType> OUTPUT_SUPPORT_DTYPE = {ge::DT_INT8, ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN, ge::DT_FLOAT4_E2M1, ge::DT_FLOAT4_E1M2};
@@ -168,7 +168,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::GetInputGroupIndex()
             OP_LOGE_FOR_INVALID_SHAPEDIM(context_->GetNodeName(), "group_index",
                 std::to_string(groupIndexDimNum).c_str(), "1 or 2"),
             return ge::GRAPH_FAILED);
-
+        
         groupNum_ = groupIndexShape_.GetDim(0);
         OP_CHECK_IF(groupNum_ < 1,
             OP_LOGE_FOR_INVALID_SHAPESIZE(context_->GetNodeName(), "group_index",
@@ -194,7 +194,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::GetAttrActivateDim()
   activateDim_ = (attrActivateDim != nullptr) ? *attrActivateDim : -1;
   // 指定切分轴维度转换为正数
   activateDim_ = activateDim_ < 0 ? activateDim_ + static_cast<int64_t>(xDimNum_) : activateDim_;
-
+  
   // 判断切分轴维度合法性
   OP_CHECK_IF(activateDim_ < 0 || activateDim_ >= static_cast<int64_t>(xDimNum_),
                   OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
@@ -285,7 +285,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::CheckInputWeightScale()
             "not None", "weight_scale must be None when x's datatype is in [bfloat16, float16]"),
         return ge::GRAPH_FAILED);
     }
-
+    
     // 如果输入x是int32，则weight_scale必须有值，合法性校验
     OP_CHECK_IF((xDType == ge::DT_INT32) && (wScaleDesc == nullptr),
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "weight_scale",
@@ -309,7 +309,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::CheckInputWeightScale()
           OP_LOGE_FOR_INVALID_SHAPEDIM(context_->GetNodeName(), "weight_scale",
               std::to_string(wScaleDimNum).c_str(), "less than or equal to 2"),
           return ge::GRAPH_FAILED);
-
+      
       if (wScaleDimNum == static_cast<size_t>(1)) {
         OP_CHECK_IF(hasGroupIndex_ == true,
           OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "group_index",
@@ -369,7 +369,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::CheckInputActScale()
             OP_LOGE_FOR_INVALID_SHAPEDIM(context_->GetNodeName(), "activation_scale",
                 std::to_string(aScaleDimNum).c_str(), "greater than 0"),
             return ge::GRAPH_FAILED);
-
+        
         // shape校验
         // activation_scale的shape size与x除尾轴外的shape size一致
         int64_t aScaleSize = aScaleStorageShape->GetStorageShape().GetShapeSize();
@@ -482,7 +482,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::CheckInputQuantScale()
             OP_LOGE_FOR_INVALID_SHAPEDIM(context_->GetNodeName(), "quant_scale",
                 std::to_string(qScaleDimNum).c_str(), "less than or equal to 2"),
             return ge::GRAPH_FAILED);
-
+        
         // 获取y的shape
         auto yStorageShape = context_->GetOutputShape(Y_INDEX);
         OP_CHECK_NULL_WITH_CONTEXT(context_, yStorageShape);
@@ -899,8 +899,8 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTilingNotFull() {
   tilingData_.set_maxCoreNum(coreNum_);
   tilingData_.set_inGroupNum(groupNum_);
   tilingData_.set_quantMode(quantMode_); // quantMode,0:静态量化,1:动态量化
-  tilingData_.set_speGroupType(speGroupType_);
-  tilingData_.set_isSpecialCoreCut(isSpecialCoreCut_);
+  tilingData_.set_speGroupType(speGroupType_); 
+  tilingData_.set_isSpecialCoreCut(isSpecialCoreCut_); 
   tilingData_.set_actRight(actRight_);
   tilingData_.set_dstType(dstType_);
   tilingData_.set_roundMode(roundMode_);
@@ -916,11 +916,11 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTilingNotFull() {
   tilingData_.set_gluBias(gluBias_);
 
   OP_LOGI(context_->GetNodeName(), "inDimx is %ld, inDimy is %ld, outDimy is %ld, UbFactorDimx is %ld, UbFactorDimy is %ld, usedCoreNum is %ld, maxCoreNum is %ld, \
-	     inGroupNum is %ld, quantMode is %ld, actRight is %ld, dstType is %ld, roundMode is %ld, activateDim is %ld, loopTimesPerRow is %ld, \
-	     tailPerRow is %ld, swiGluMode is %ld, biasMode is %ld, groupIndexMode is %ld, quantIsOne is %ld, clampLimit is %f, gluAlpha is %f, gluBias is %f", \
+ 	     inGroupNum is %ld, quantMode is %ld, actRight is %ld, dstType is %ld, roundMode is %ld, activateDim is %ld, loopTimesPerRow is %ld, \
+ 	     tailPerRow is %ld, swiGluMode is %ld, biasMode is %ld, groupIndexMode is %ld, quantIsOne is %ld, clampLimit is %f, gluAlpha is %f, gluBias is %f", \
        tilingData_.get_inDimx(), tilingData_.get_inDimy(), tilingData_.get_outDimy(), tilingData_.get_UbFactorDimx(), tilingData_.get_UbFactorDimy(), \
-	     tilingData_.get_usedCoreNum(), tilingData_.get_maxCoreNum(), tilingData_.get_inGroupNum(), tilingData_.get_quantMode(), tilingData_.get_actRight(), tilingData_.get_dstType(), \
-	     tilingData_.get_roundMode(), tilingData_.get_activateDim(), tilingData_.get_loopTimesPerRow(), tilingData_.get_tailPerRow(), tilingData_.get_swiGluMode(), \
+ 	     tilingData_.get_usedCoreNum(), tilingData_.get_maxCoreNum(), tilingData_.get_inGroupNum(), tilingData_.get_quantMode(), tilingData_.get_actRight(), tilingData_.get_dstType(), \
+ 	     tilingData_.get_roundMode(), tilingData_.get_activateDim(), tilingData_.get_loopTimesPerRow(), tilingData_.get_tailPerRow(), tilingData_.get_swiGluMode(), \
        tilingData_.get_biasMode(), tilingData_.get_groupIndexMode(), tilingData_.get_quantIsOne(), tilingData_.get_clampLimit(), tilingData_.get_gluAlpha(), tilingData_.get_gluBias());
   OP_LOGI(context_->GetNodeName(), "tilingKey_ is %ld, speGroupType is %ld, isSpecialCoreCut is %ld", tilingKey_, speGroupType_, isSpecialCoreCut_);
 
@@ -944,7 +944,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTiling() {
   int64_t denominator = doubleBuffer * (xUbAlign * SWI_FACTOR * xBits + aScaleAlign32B_ * sizeof(float)) +
                         doubleBuffer * yAlign8B* sizeof(int8_t) + aScaleAlign32B_ * sizeof(float) +
                         xUbAlign32B * sizeof(float);
-
+  
   // swiglu_mode=1时，增加x weight_scale的尾轴128向上对齐ub
   if (swigluMode_ == 1) {
     int64_t tailSupply = (inDimy_ + 128 - 1) / 128 * 128 - inDimy_;
@@ -1013,11 +1013,11 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTiling() {
       maxPreCore_ = std::min(static_cast<int64_t>(coreNum_), static_cast<int64_t>(inDimx_));
       OP_LOGI(context_->GetNodeName(), "after maxPreCore_ is %ld ", maxPreCore_);
   }
-
+  
   auto quantScaleDesc = context_->GetOptionalInputDesc(QUANT_SCALE_INDEX);
   auto actScaleDesc = context_->GetOptionalInputDesc(ACTIVATION_SCALE_INDEX);
   auto groupIndexDesc = context_->GetOptionalInputDesc(INPUT_GROUP_INDEX);
-
+  
   // 输入x的tiling key计算位
   int64_t hasXInt = quantMode_ == 1 ? 0: 1;
   int64_t hasAScale = actScaleDesc != nullptr;
@@ -1026,7 +1026,7 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTiling() {
   int64_t hasGIndex = groupIndexDesc != nullptr;
   // activateDim=-1时，hasActivateDim=0，否则为1; 当activateDim=xDim-1时，hashActivateDim=1
   int64_t hasActivateDim = static_cast<size_t>(activateDim_) != xDimNum_ - static_cast<size_t>(1);
-
+  
   // 增加十万分位的tiling_key，hasActivateDim;增加万分位的tilling_key hasXInt:判断输入x是不是int32;千分位的tiling_key biasDtypeValue
   tilingKey_ = hasActivateDim * ACTIVATE_DIM_FACTOR + hasXInt * INPUT_X_FACTOR + biasDtypeValue * BIAS_FACTOR + hasAScale * ACT_SCALE_FACTOR + hasQScale * QUANT_SCALE_FACTOR + hasGIndex * GROUP_INDEX_FACTOR;
   tilingData_.set_inDimx(inDimx_);
@@ -1049,14 +1049,14 @@ ge::graphStatus DequantSwigluQuantV35DskTiling::DoOpTiling() {
   tilingData_.set_clampLimit(clampLimit_);
   tilingData_.set_gluAlpha(gluAlpha_);
   tilingData_.set_gluBias(gluBias_);
-  tilingData_.set_speGroupType(speGroupType_);
+  tilingData_.set_speGroupType(speGroupType_); 
   tilingData_.set_isSpecialCoreCut(isSpecialCoreCut_);
   OP_LOGI(context_->GetNodeName(), "inDimx is %ld, inDimy is %ld, outDimy is %ld, UbFactorDimx is %ld, UbFactorDimy is %ld, usedCoreNum is %ld, maxCoreNum is %ld, \
-	     inGroupNum is %ld, quantMode is %ld, actRight is %ld, dstType is %ld, roundMode is %ld, activateDim is %ld, swiGluMode is %ld, \
-	     biasMode is %ld, groupIndexMode is %ld, biasMode is %ld, groupIndexMode is %ld, quantIsOne is %ld, clampLimit is %f, gluAlpha is %f, gluBias is %f", \
+ 	     inGroupNum is %ld, quantMode is %ld, actRight is %ld, dstType is %ld, roundMode is %ld, activateDim is %ld, swiGluMode is %ld, \
+ 	     biasMode is %ld, groupIndexMode is %ld, biasMode is %ld, groupIndexMode is %ld, quantIsOne is %ld, clampLimit is %f, gluAlpha is %f, gluBias is %f", \
        tilingData_.get_inDimx(), tilingData_.get_inDimy(), tilingData_.get_outDimy(), tilingData_.get_UbFactorDimx(), tilingData_.get_UbFactorDimy(), \
-	     tilingData_.get_usedCoreNum(), tilingData_.get_maxCoreNum(), tilingData_.get_inGroupNum(), tilingData_.get_quantMode(), tilingData_.get_actRight(), tilingData_.get_dstType(), \
-	     tilingData_.get_roundMode(), tilingData_.get_activateDim(), tilingData_.get_swiGluMode(), tilingData_.get_biasMode(), tilingData_.get_groupIndexMode(), \
+ 	     tilingData_.get_usedCoreNum(), tilingData_.get_maxCoreNum(), tilingData_.get_inGroupNum(), tilingData_.get_quantMode(), tilingData_.get_actRight(), tilingData_.get_dstType(), \
+ 	     tilingData_.get_roundMode(), tilingData_.get_activateDim(), tilingData_.get_swiGluMode(), tilingData_.get_biasMode(), tilingData_.get_groupIndexMode(), \
        tilingData_.get_biasMode(), tilingData_.get_groupIndexMode(), tilingData_.get_quantIsOne(), tilingData_.get_clampLimit(), tilingData_.get_gluAlpha(), tilingData_.get_gluBias());
   OP_LOGI(context_->GetNodeName(), "tilingKey_ is %ld, speGroupType is %ld, isSpecialCoreCut is %ld", tilingKey_, speGroupType_, isSpecialCoreCut_);
 
@@ -1281,7 +1281,7 @@ ge::graphStatus DequantSwigluQuantV35NlastTiling::DoOpTiling()
   int64_t hasAScale = actScaleDesc != nullptr;
   int64_t hasQScale = quantScaleDesc != nullptr;
 
-  tilingKey_ = 1 * ACTIVATE_DIM_FACTOR + biasDtypeValue_ * BIAS_FACTOR + hasAScale * ACT_SCALE_FACTOR +
+  tilingKey_ = 1 * ACTIVATE_DIM_FACTOR + biasDtypeValue_ * BIAS_FACTOR + hasAScale * ACT_SCALE_FACTOR + 
                hasQScale * QUANT_SCALE_FACTOR + 0 * GROUP_INDEX_FACTOR;
 
   return ge::GRAPH_SUCCESS;

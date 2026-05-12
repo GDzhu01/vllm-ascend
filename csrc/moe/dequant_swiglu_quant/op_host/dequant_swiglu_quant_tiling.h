@@ -280,7 +280,7 @@ class DequantSwigluQuantDskTiling : public TilingBaseClass
   float clampLimit_ = 0.0;
   float gluAlpha_ = 0.0;
   float gluBias_ = 0.0;
-
+  
   protected:
   bool IsCapable() override;
   ge::graphStatus GetPlatformInfo() override;
@@ -395,7 +395,7 @@ class DequantSwigluQuantV35DskTiling : public TilingBaseClass {
     int64_t dstType_ = 2;
     int64_t roundMode_ = 0;
     int64_t activateDim_ = -1UL;
-
+  
     protected:
     bool IsCapable() override;
     ge::graphStatus GetPlatformInfo() override;
@@ -419,7 +419,7 @@ class DequantSwigluQuantV35DskTiling : public TilingBaseClass {
     ge::graphStatus CheckOutputScale();
     ge::graphStatus DoOpTilingNotFull();
     void CalcTilingKeyForNotFull();
-
+  
     private:
     uint64_t tilingKey_ = 0;
     DequantSwigluQuantV35BaseTilingData tilingData_;
@@ -449,7 +449,7 @@ class DequantSwigluQuantV35NlastTiling : public TilingBaseClass {
     void FusedShape();
     void DoBlockSplit();
     bool DoUbSplit();
-
+  
   private:
     uint64_t tilingKey_ = 0;
     uint64_t workspaceSize_ = 0;

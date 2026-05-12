@@ -1,7 +1,6 @@
 # QuantLightningIndexerMetadata
 
 ## 产品支持情况
-
 | 产品                                                         | 是否支持 |
 | ------------------------------------------------------------ | :------: |
 |<term>Ascend 950PR/Ascend 950DT</term>   | √  |
@@ -10,12 +9,13 @@
 
 ## 功能说明
 
-- API功能：QuantLightningIndexerMetadata是QuantLightningIndexer的前置算子，通过AICPU为QuantLightningIndexer算子生成分核结果，包括每个核需要处理的数据的起始点、结束点等内容，随后，QuantLightningIndexer根据该分核结果进行实际计算。
+-   API功能：QuantLightningIndexerMetadata是QuantLightningIndexer的前置算子，通过AICPU为QuantLightningIndexer算子生成分核结果，包括每个核需要处理的数据的起始点、结束点等内容，随后，QuantLightningIndexer根据该分核结果进行实际计算。
 
-- 主要计算过程为：
+-   主要计算过程为：
     1. 获取每个`batch`的基本块大小，并计算负载。
     2. 计算所有`batch`的总负载和总的基本块个数。
     3. 为每个核分配负载，并记录分核结果，分核结果包括每个核需要处理的数据的起始点、结束点等内容。
+
 
 ## 参数说明
 
@@ -176,6 +176,6 @@
      </table>
 
 ## 约束说明
+-   该接口支持推理场景下使用。
+-   该接口支持aclgraph模式。
 
-- 该接口支持推理场景下使用。
-- 该接口支持aclgraph模式。

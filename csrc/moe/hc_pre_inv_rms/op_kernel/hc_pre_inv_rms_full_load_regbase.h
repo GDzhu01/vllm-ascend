@@ -57,7 +57,7 @@ public:
 
 private:
     TPipe* pipe_;
-
+    
     TQue<QuePosition::VECIN, 1> inQueueX;
     TQue<QuePosition::VECOUT, 1> outQueueY;
 
@@ -136,7 +136,7 @@ __aicore__ inline void HcPreInvRmsFullLoadRegbase<T>::CopyIn(uint64_t idx, uint6
     DataCopyExtParams dataCopyParams{
         static_cast<uint16_t>(curUbFactorA), static_cast<uint32_t>(R * sizeof(T)), 0, 0, 0};
     DataCopyPad(xLocal, xGm[xGmStartAddr], dataCopyParams, dataCopyPadParams);
-
+    
     inQueueX.EnQue<T>(xLocal);
 }
 
@@ -151,7 +151,7 @@ __aicore__ inline void HcPreInvRmsFullLoadRegbase<T>::Compute(uint64_t idx, uint
     } else {
         ComputeFullLoadVF(yLocal, xLocal, rAlign, R, curUbFactorA);
     }
-
+    
     outQueueY.EnQue<float>(yLocal);
     inQueueX.FreeTensor(xLocal);
 }
@@ -185,7 +185,7 @@ __aicore__ inline void HcPreInvRmsFullLoadRegbase<T>::ComputeFullLoadVF(LocalTen
         AscendC::MicroAPI::MaskReg pregAll = AscendC::MicroAPI::CreateMask<float, AscendC::MicroAPI::MaskPattern::ALL>();
         AscendC::MicroAPI::MaskReg pregOne = AscendC::MicroAPI::CreateMask<float, AscendC::MicroAPI::MaskPattern::VL1>();
         AscendC::MicroAPI::Duplicate(vregOne, 1.0f);
-
+        
         for (uint16_t i = 0; i < iLoopNum; i++) {
             AscendC::MicroAPI::Duplicate(vregSum, 0.0f);  // 用于累加的vreg
 

@@ -271,7 +271,7 @@ SparseAttnSharedkvSwa<SAST>::InitActualSeqLen(__gm__ uint8_t *actualSeqLengthsQ,
         actualSeqLengthsKVGm.SetGlobalBuffer((__gm__ int32_t *)actualSeqLengthsKV, constInfo.actualLenDimsKV);
         if (constInfo.templateMode == CFA_TEMPLATE) {
             actualSeqLengthsCmpKVGm.SetGlobalBuffer((__gm__ int32_t *)actualSeqLengthsCmpKV, constInfo.actualLenDimsKV);
-        }
+        } 
     }
     if (constInfo.actualLenDimsQ != 0) {
         actualSeqLengthsQGm.SetGlobalBuffer((__gm__ int32_t *)actualSeqLengthsQ, constInfo.actualLenDimsQ);
@@ -358,7 +358,7 @@ __aicore__ inline int32_t SparseAttnSharedkvSwa<SAST>::GetActualSeqLenKV(uint32_
         int32_t actualSeqKVNextSum = actualSeqLengthsKVGm.GetValue(bIdx + 1);
         if (constInfo.templateMode == CFA_TEMPLATE) {
             tempLoopInfo.actualSeqCmpKVPrefixSum = actualSeqLengthsCmpKVGm.GetValue(bIdx);
-        }
+        } 
         tempLoopInfo.actualSeqKVPrefixSum = actualSeqKVPrefixSum;
         return actualSeqKVNextSum - actualSeqKVPrefixSum;
     }
@@ -555,11 +555,11 @@ __aicore__ inline void SparseAttnSharedkvSwa<SAST>::CalcParams(uint32_t loop, ui
 
     if (info.isFirstSInnerLoop) {
         tensorACoreOffset = tndBIdxOffsetForQ + info.gS1Idx * constInfo.headDim;
-        tensorBCoreOffset = tndBIdxOffsetForKV + info.n2Idx * constInfo.headDim;
+        tensorBCoreOffset = tndBIdxOffsetForKV + info.n2Idx * constInfo.headDim; 
         tensorCmpBCoreOffset = tndBIdxOffsetForCmpKV + info.n2Idx * constInfo.headDim;
     }
     info.tensorAOffset = tensorACoreOffset;
-    info.tensorBOffset = tensorBCoreOffset;
+    info.tensorBOffset = tensorBCoreOffset; 
     info.tensorCmpBOffset = tensorCmpBCoreOffset;
     info.attenOutOffset = tensorACoreOffset;
 

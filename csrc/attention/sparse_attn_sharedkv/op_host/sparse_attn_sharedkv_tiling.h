@@ -188,7 +188,7 @@ struct SASParaInfo {
     SASTilingOptionalParaInfo cuSeqLensQ = {nullptr, nullptr};
     SASTilingOptionalParaInfo seqUsedQ = {nullptr, nullptr};
     SASTilingOptionalParaInfo cuSeqLensKv = {nullptr, nullptr};
-	SASTilingOptionalParaInfo cuSeqLensCmpKv = {nullptr, nullptr};
+ 	SASTilingOptionalParaInfo cuSeqLensCmpKv = {nullptr, nullptr};
     SASTilingOptionalParaInfo sequsedKv = {nullptr, nullptr};
     SASTilingOptionalParaInfo sinks = {nullptr, nullptr};
     SASTilingOptionalParaInfo metadata = {nullptr, nullptr};
@@ -251,7 +251,7 @@ public:
     int32_t sparseMode = 0;
     // Others Flag
     uint32_t sparseCount = 0;
-
+    
     bool returnSoftmaxLse = false;
     // PageAttention
     uint32_t blockTypeSize = 0;
@@ -295,7 +295,7 @@ private:
     template <typename T>
     void LogErrorDimNumSupport(const std::vector<T> &expectNumberList,
         const T &actualValue, const std::string &name) const;
-    template <typename T>
+    template <typename T> 
     void LogErrorNumberSupport(const std::vector<T> &expectNumberList,
         const T &actualValue, const std::string &name, const std::string subName) const;
     ge::graphStatus CheckDimNumSupport(const gert::StorageShape *shape,
@@ -342,7 +342,7 @@ private:
 
     ge::graphStatus CheckMultiParaConsistency();
     void SetSASShapeCompare();
-    ge::graphStatus CheckDTypeConsistency(const ge::DataType &actualDtype,
+    ge::graphStatus CheckDTypeConsistency(const ge::DataType &actualDtype, 
         const ge::DataType &expectDtype, const std::string &name) const;
     ge::graphStatus CheckOriAndCmpKv() const;
     ge::graphStatus CheckAttenOut() const;
@@ -554,7 +554,7 @@ private:
     uint32_t sInnerSize_ = 512; // s2固定切分512
     uint32_t sInnerSizeAlign_ = 0;
     uint32_t usedCoreNum_ = 0;
-
+    
     uint32_t headDimAlign_ = 0;
     uint32_t mBaseSize_ = 64;
 };

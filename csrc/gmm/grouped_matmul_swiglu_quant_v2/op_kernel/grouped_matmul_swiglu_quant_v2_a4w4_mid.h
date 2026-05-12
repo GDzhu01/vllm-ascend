@@ -118,8 +118,8 @@ __aicore__ inline void GMMA4W4MidProcess<mmType>::SetMNConfig(const int32_t spli
     mnConfig.baseM = gmmSwigluQuantV2BaseParams->baseM;
     mnConfig.baseN = gmmSwigluQuantV2BaseParams->baseN;
     mnConfig.singleM = gmmSwigluQuantV2BaseParams->baseM;
-    mnConfig.singleN = gmmSwigluQuantV2BaseParams->singleN != 0 && gmmSwigluQuantV2BaseParams->quantGroupNum == 1?
-                         gmmSwigluQuantV2BaseParams->singleN : gmmSwigluQuantV2BaseParams->baseN;
+    mnConfig.singleN = gmmSwigluQuantV2BaseParams->singleN != 0 && gmmSwigluQuantV2BaseParams->quantGroupNum == 1? 
+                         gmmSwigluQuantV2BaseParams->singleN : gmmSwigluQuantV2BaseParams->baseN;                    
 }
 
 template <typename mmType>
@@ -134,7 +134,7 @@ __aicore__ inline void GMMA4W4MidProcess<mmType>::Process(WorkSpaceSplitConfig &
         mnConfig.baseM = gmmSwigluQuantV2BaseParams->baseM;
         mnConfig.baseN = gmmSwigluQuantV2BaseParams->baseN;
         mnConfig.singleM = gmmSwigluQuantV2BaseParams->baseM;
-        mnConfig.singleN = gmmSwigluQuantV2BaseParams->singleN != 0 && gmmSwigluQuantV2BaseParams->quantGroupNum == 1?
+        mnConfig.singleN = gmmSwigluQuantV2BaseParams->singleN != 0 && gmmSwigluQuantV2BaseParams->quantGroupNum == 1? 
                             gmmSwigluQuantV2BaseParams->singleN : gmmSwigluQuantV2BaseParams->baseN;
         mnConfig.k = gmmSwigluQuantV2BaseParams->K; // tilingData
         mnConfig.n = gmmSwigluQuantV2BaseParams->N; // tilingData

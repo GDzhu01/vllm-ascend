@@ -250,7 +250,7 @@ private:
     void AssignByBlock(const SplitContext &splitContext, AssignContext &assignContext);
     void ForceAssign(const SplitContext &splitContext, AssignContext &assignContext);
     void AssignBlockToCore(uint32_t coreNum, const SplitContext &splitContext, AssignContext &assignContext, SplitResult &result);
-
+                                                               
     // FD
     bool IsNeedRecordFDInfo(const AssignContext &assignContext, const SplitResult &splitRes);
     void RecordFDInfo(const SplitContext &splitContext, const AssignContext &assignContext, SplitResult &result);
@@ -296,7 +296,7 @@ private:
     uint32_t s2BaseSize_ = 0;
     bool isS1G_ = true;
     bool isActQBatchPlus = false;
-
+    
 private:
     enum class ParamId : uint32_t {
         // input

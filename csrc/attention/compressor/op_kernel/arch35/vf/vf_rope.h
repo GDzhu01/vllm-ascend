@@ -264,7 +264,7 @@ __aicore__ inline void RopeVF(const LocalTensor<ROPET>& sinTensor, const LocalTe
     __ubuf__ ROPET* sinUb = (__ubuf__ ROPET*)sinTensor.GetPhyAddr();
     __ubuf__ ROPET* cosUb = (__ubuf__ ROPET*)cosTensor.GetPhyAddr();
     __ubuf__ T* inUb = (__ubuf__ T*)inTensor.GetPhyAddr();
-    __ubuf__ ROPET* outUb = (__ubuf__ ROPET*)outTensor.GetPhyAddr();
+    __ubuf__ ROPET* outUb = (__ubuf__ ROPET*)outTensor.GetPhyAddr(); 
 
     RopeParam ropeParam;
     ropeParam.dLen = dLen;

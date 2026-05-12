@@ -128,8 +128,8 @@ __aicore__ inline void DequantSwigluQuantDynamicPerformance<TEMPLATE_ARGS>::Init
     inALocalPong = inQueueAPongBuf.Get<InType>();
     inBLocalPing = inQueueBPingBuf.Get<InType>();
     inBLocalPong = inQueueBPongBuf.Get<InType>();
-    outFLocalPing = outQueueFPingBuf.Get<int8_t>();
-    outFLocalPong = outQueueFPongBuf.Get<int8_t>();
+    outFLocalPing = outQueueFPingBuf.Get<int8_t>(); 
+    outFLocalPong = outQueueFPongBuf.Get<int8_t>(); 
     this->maxTempLocal = outQueueSBuf.Get<float>();
 
     this->weightScaleLocalA = weightScaleBufA.Get<float>();

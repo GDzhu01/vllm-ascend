@@ -41,7 +41,7 @@ def shell_exec(cmd, shell=False):
         ps = subprocess.Popen(cmd, shell)
         ps.communicate(timeout=180)
     except BaseException as e:
-        log.error("shell_exec error: %s", e)
+        log.error(f"shell_exec error: {e}")
         sys.exit(1)
 
 
@@ -418,7 +418,7 @@ namespace l0op {{
         for symbol in symbol_ret.splitlines():
             symbol_name = symbol.split("::")[-1]
             if not (symbol_name.startswith(prefix) and symbol_name.endswith(suffix)):
-                log.warning("symbol not satisfied with the format:%s<op_type>%s, skip", prefix, suffix)
+                log.warning(f"symbol not satisfied with the format:{prefix}<op_type>{suffix}, skip")
                 continue
             op_type = symbol_name
             if prefix:
@@ -433,7 +433,7 @@ namespace l0op {{
         for symbol in symbol_ret.splitlines():
             symbol_name = symbol.split("::")[-1]
             if not (symbol_name.startswith(prefix)):
-                log.warning("symbol not satisfied with the format:%s, skip", prefix)
+                log.warning(f"symbol not satisfied with the format:{prefix}, skip")
                 continue
             op_type = symbol_name
             if prefix:

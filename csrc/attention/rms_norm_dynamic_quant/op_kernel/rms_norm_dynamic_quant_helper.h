@@ -141,7 +141,7 @@ __aicore__ inline void ReduceMaxInplace(const LocalTensor<float>& srcLocal, int3
  */
 __aicore__ inline void ReduceSumInplace(const LocalTensor<float>& srcLocal, int32_t count)
 {
-    uint64_t repsFp32 = count >> 6;       // 6 is count / ELEM_PER_REP_FP32
+    uint64_t repsFp32 = count >> 6;       // 6 is cound / ELEM_PER_REP_FP32
     uint64_t offsetsFp32 = repsFp32 << 6; // 6 is repsFp32 * ELEM_PER_REP_FP32
     uint64_t remsFp32 = count & 0x3f;     // 0x3f 63, count % ELEM_PER_REP_FP32
 
@@ -164,7 +164,7 @@ __aicore__ inline void DivScalarFP32(
     LocalTensor<float>& dstTensor, LocalTensor<float>& dividendTensor, LocalTensor<float>& tmpTensor,
     float divisorScalar, uint32_t count)
 {
-    uint32_t repsFp32 = count >> 6;                        // 6 is divide 64
+    uint32_t repsFp32 = count >> 6;                        // 6 is devide 64
     uint32_t offsetsFp32 = count & 0xffffffc0;             // 0xffffffc0 is floor by 64
     uint32_t remsFp32 = count & 0x3f;                      // 0x3f is mod(64)
     Duplicate(tmpTensor, divisorScalar, FLOAT_BLOCK_ELEM); // FLOAT_BLOCK_ELEM);

@@ -83,7 +83,7 @@ public:
 
 private:
     TPipe* pipe_;
-
+    
     TQue<QuePosition::VECIN, BUFFER_NUM> inQueueX;
     TQue<QuePosition::VECOUT, BUFFER_NUM> outQueueY;
     TBuf<TPosition::VECCALC> castBuf;
@@ -172,7 +172,7 @@ __aicore__ inline void HcPreInvRmsFullLoadLargeD<T>::CopyIn(uint64_t idx, uint64
     DataCopyExtParams dataCopyParams{
         static_cast<uint16_t>(curUbFactorA), static_cast<uint32_t>(R * sizeof(T)), 0, 0, 0};
     DataCopyPad(xLocal, xGm[xGmStartAddr], dataCopyParams, dataCopyPadParams);
-
+    
     inQueueX.EnQue<T>(xLocal);
 }
 
@@ -204,9 +204,9 @@ __aicore__ inline void HcPreInvRmsFullLoadLargeD<T>::ComputeB16(uint64_t curUbFa
     }
 
     float meanCof = 1.0f / R;
-    PipeBarrier<PIPE_V>();
+    PipeBarrier<PIPE_V>(); 
     AscendC::Muls(yLocal, yLocal, meanCof, curUbFactorA);
-    PipeBarrier<PIPE_V>();
+    PipeBarrier<PIPE_V>(); 
     AscendC::Adds(yLocal, yLocal, epsilon, curUbFactorA);
     PipeBarrier<PIPE_V>();
     AscendC::Duplicate(reduceLocal, 1.0f, curUbFactorA);
@@ -234,9 +234,9 @@ __aicore__ inline void HcPreInvRmsFullLoadLargeD<T>::ComputeB32(uint64_t curUbFa
     }
 
     float meanCof = 1.0f / R;
-    PipeBarrier<PIPE_V>();
+    PipeBarrier<PIPE_V>(); 
     AscendC::Muls(yLocal, yLocal, meanCof, curUbFactorA);
-    PipeBarrier<PIPE_V>();
+    PipeBarrier<PIPE_V>(); 
     AscendC::Adds(yLocal, yLocal, epsilon, curUbFactorA);
     PipeBarrier<PIPE_V>();
     AscendC::Duplicate(reduceLocal, 1.0f, curUbFactorA);

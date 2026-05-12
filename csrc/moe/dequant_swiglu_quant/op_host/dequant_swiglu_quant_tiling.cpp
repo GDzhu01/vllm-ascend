@@ -430,7 +430,7 @@ ge::graphStatus DequantSwigluQuantDskTiling::CheckScaleShapeWithDim(const int64_
     OP_CHECK_IF(
         groupNumFromScale != 1,
         OP_LOGE_FOR_INVALID_SHAPE(context_->GetNodeName(), paramName,
-            Ops::Base::ToString(scaleShape).c_str(),
+            Ops::Base::ToString(scaleShape).c_str(), 
             ("[1," + std::to_string(expectDim) + "] or [" + std::to_string(expectDim) + "]").c_str()),
         return ge::GRAPH_FAILED);
   }
@@ -563,7 +563,7 @@ void DequantSwigluQuantDskTiling::CountTilingKey() {
   auto xPtr = context_->GetInputDesc(X_INDEX);
   auto xDtype = xPtr->GetDataType();
   tilingKey_ = hasGroupIndex_ ? TILING_KEY_HAS_GROUP : TILING_KEY_NO_GROUP;
-  // add quant scale offset to tilingKey_
+  // add quant scale offet to tilingKey_
   tilingKey_ += TILING_KEY_QS_DTYPE * tilingData_.get_quantScaleDtype();
   // add bias offset to tilingKey_
   tilingKey_ += TILING_KEY_BIAS_DTYPE * tilingData_.get_biasDtype();

@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-/* function: aclnnQuantLightningIndexerMetadataGetWorkspaceSize
+/* funtion: aclnnQuantLightningIndexerMetadataGetWorkspaceSize
  * parameters :
  * actualSeqLengthsQuery : optional
  * actualSeqLengthsKey : optional
@@ -63,7 +63,7 @@ aclnnQuantLightningIndexerMetadataGetWorkspaceSize(
     uint64_t* workspaceSize,
     aclOpExecutor** executor);
 
-/* function: aclnnQuantLightningIndexerMetadata
+/* funtion: aclnnQuantLightningIndexerMetadata
  * parameters :
  * workspace : workspace memory addr(input).
  * workspaceSize : size of workspace(input).

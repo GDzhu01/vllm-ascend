@@ -38,11 +38,11 @@ namespace ge {
 * @par Attributes:
 * @li activate_left: Type is bool.
 * The swi activate_left algorithm to use:
-*     'false'(activate right) or 'true'(activate left), default is 'false'(activate right).
-* @li quant_mode: Type is string. The quant mode to use: 'static' or 'dynamic', default is 'static'.
+*     'false'(activate right) or 'true'(activate left), defalut is 'false'(activate right).
+* @li quant_mode: Type is string. The quant mode to use: 'static' or 'dynamic', defalut is 'static'.
 * @li dst_type: Type is Int32. Declare the output y dtype. Support 2:int8, 35:fp8_e5m2, 36:fp8_e4m3fn, 40:fp4x2_e2m1, 41:fp4x2_e1m2, Defaults to 2, only used for Ascend 950 AI Processors.
-* @li round_mode: Type is String. The round mode to use: 'rint', 'round, 'floor', 'ceil', 'trunc', default is 'rint', only used for Ascend 950 AI Processors.
-* @li activate_dim: Type is Int32. Describing the split dimension in Glu algorithm: value in [-xDim, xDim-1], default is -1, only used for Ascend 950 AI Processors.
+* @li round_mode: Type is String. The round mode to use: 'rint', 'round, 'floor', 'ceil', 'trunc', defalut is 'rint', only used for Ascend 950 AI Processors.
+* @li activate_dim: Type is Int32. Describing the split dimension in Glu algorithm: value in [-xDim, xDim-1], defalut is -1, only used for Ascend 950 AI Processors.
 * @li swiglu_mode: Type is int. Optional parameter, default is 0. The SWIGLU computation mode to use:
 *     '0' (default) for standard SWIGLU, '1' for a variant using odd-even blocking, which requires support for clamp_limit, activation coefficient, and bias. This attribute is not supported in Ascend 950 AI Processors.
 * @li clamp_limit: Type is float. Optional parameter, default is 7.0. The threshold limit for SWIGLU input. This attribute is not supported in Ascend 950 AI Processors.

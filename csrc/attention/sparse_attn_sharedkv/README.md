@@ -1,7 +1,6 @@
 # SparseAttnSharedkv
 
 ## 产品支持情况
-
 | 产品                                                         | 是否支持 |
 | ------------------------------------------------------------ | :------: |
 |<term>Ascend 950PR/Ascend 950DT</term>                        | ×  |
@@ -12,7 +11,6 @@
 |<term>Atlas 训练系列产品</term>                                | ×  |
 
 ## 功能说明
-
 - API功能：`SparseAttnSharedKV`算子旨在完成以下公式描述的Attention计算，支持Sliding Window Attention、Compressed Attention以及Sparse Compressed Attention。
 
 - 计算公式：
@@ -54,25 +52,24 @@
 | softmax\_lse          | 输出      | 返回的`softmax_lse`。                                                 | FLOAT32             | ND |
 
 ## 约束说明
-
 - 该接口支持推理场景下使用。
 - 该接口支持aclgraph模式。
 - 该接口当前支持三种计算场景：场景一，仅传入`ori_kv`时为Sliding Window Attention计算；场景二，传入`ori_kv`及`cmp_kv`时为Sliding Window Attention + Compressed Attention计算；场景三，传入`ori_kv`、`cmp_kv`及`cmp_sparse_indices`时为Sliding Window Attention + Sparse Compressed Attention计算。
 
 - 当`layout_q`为TND时，功能使用限制如下：
-    - `q`的shape需要为[T1,N1,D]，其中N1仅支持64。
-    - `ori_sparse_indices`的shape需要为[Q\_T, KV\_N, K1]，其中K1为对`ori_kv`一次离散选取的token数，K1仅支持512。
-    - `cmp_sparse_indices`的shape需要为[Q\_T, KV\_N, K2]，其中K2为对`cmp_kv`一次离散选取的token数，K2仅支持512。
-    - `cu_seqlens_q`必须传入，输入维度为B+1，大小为参数中每个元素的值表示当前batch与之前所有batch的token数总和，即前缀和，因此后一个元素的值必须>=前一个元素的值。
+  - `q`的shape需要为[T1,N1,D]，其中N1仅支持64。
+  - `ori_sparse_indices`的shape需要为[Q\_T, KV\_N, K1]，其中K1为对`ori_kv`一次离散选取的token数，K1仅支持512。
+  - `cmp_sparse_indices`的shape需要为[Q\_T, KV\_N, K2]，其中K2为对`cmp_kv`一次离散选取的token数，K2仅支持512。
+  - `cu_seqlens_q`必须传入，输入维度为B+1，大小为参数中每个元素的值表示当前batch与之前所有batch的token数总和，即前缀和，因此后一个元素的值必须>=前一个元素的值。
 
 - 当`layout_q`为BSND时，功能使用限制如下：
-    - `q`的shape需要为[B, Q\_S,N1,D]，其中N1仅支持64。
-    - `ori_sparse_indices`的shape需要为[B, Q\_S, KV\_N, K1]，其中K1为对`ori_kv`一次离散选取的token数，K1仅支持512。
-    - `cmp_sparse_indices`的shape需要为[B, Q\_S, KV\_N, K2]，其中K2为对`cmp_kv`一次离散选取的token数，K2仅支持512。
+  - `q`的shape需要为[B, Q\_S,N1,D]，其中N1仅支持64。
+  - `ori_sparse_indices`的shape需要为[B, Q\_S, KV\_N, K1]，其中K1为对`ori_kv`一次离散选取的token数，K1仅支持512。
+  - `cmp_sparse_indices`的shape需要为[B, Q\_S, KV\_N, K2]，其中K2为对`cmp_kv`一次离散选取的token数，K2仅支持512。
 
 - PageAttention场景下，功能使用限制如下：
-    - `ori_kv`和`cmp_kv`的shape分别为[ori\_block\_num, ori\_block\_size, KV\_N, D]和[cmp\_block\_num, cmp\_block\_size, KV\_N, D]，其中ori\_block\_num和cmp\_block\_num为PageAttention时block总数，ori\_block\_size和cmp\_block\_size为一个block的token数，ori\_block\_size和cmp\_block\_size取值为16的倍数，最大支持1024，KV_N仅支持1。
-    - `ori_block_table`和`cmp_block_table`的shape为2维，其中第一维长度为B，第二维长度不小于所有batch中最大的S2和S3对应的block数量，即S2\_max / block\_size和S3\_max / block\_size向上取整。
+  - `ori_kv`和`cmp_kv`的shape分别为[ori\_block\_num, ori\_block\_size, KV\_N, D]和[cmp\_block\_num, cmp\_block\_size, KV\_N, D]，其中ori\_block\_num和cmp\_block\_num为PageAttention时block总数，ori\_block\_size和cmp\_block\_size为一个block的token数，ori\_block\_size和cmp\_block\_size取值为16的倍数，最大支持1024，KV_N仅支持1。
+  - `ori_block_table`和`cmp_block_table`的shape为2维，其中第一维长度为B，第二维长度不小于所有batch中最大的S2和S3对应的block数量，即S2\_max / block\_size和S3\_max / block\_size向上取整。
 - `metadata`为算子实际需要使用的分核结果，目前该参数必传，shape大小固定为[1024]。
 - `layout_kv`仅支持输入PA_ND，故设置`cu_seqlens_ori_kv`和`cu_seqlens_cmp_kv`无效。
 - 目前暂不支持返回`softmax_lse`，`return_softmax_lse`仅支持输入False，返回值`softmax_lse`为无效值。
@@ -84,7 +81,7 @@
 - Q\_S和S1表示q shape中的S，S2表示ori_kv shape中的S，S3表示cmp_kv shape中的S；Q\_N和N1表示num\_q\_heads，KV\_N和N2表示num\_ori_kv\_heads和num\_cmp_kv\_heads；Q\_T和T1表示q shape中的输入样本序列长度的累加和。
 
 - 当`layout_kv`为BSND时，功能使用限制如下：
-    - `ori_kv`和`cmp_kv`的layout都必须为BSND，ori_kv的shape为[B, S2, N2,D]，cmp_kv的shape为[B, S3, N2,D]。
+  - `ori_kv`和`cmp_kv`的layout都必须为BSND，ori_kv的shape为[B, S2, N2,D]，cmp_kv的shape为[B, S3, N2,D]。
 
 ## Atlas A3 推理系列产品 调用说明
 

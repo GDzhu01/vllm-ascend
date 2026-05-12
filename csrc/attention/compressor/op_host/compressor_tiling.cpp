@@ -50,7 +50,7 @@ void CompressorTiling::ConvertRequiredParams(gert::TilingContext &context, Compr
 
     compressorContext.cmpKv.desc = context.GetOutputDesc(CMP_KV_OUTPUT_INDEX);
     compressorContext.cmpKv.shape = context.GetOutputShape(CMP_KV_OUTPUT_INDEX);
-
+    
     compressorContext.dtype = compressorContext.x.desc->GetDataType();
     auto xDimNum = compressorContext.x.shape->GetStorageShape().GetDimNum();
     if (xDimNum == COMPRESSOR_DIM_NUM_3) {
@@ -143,7 +143,7 @@ ge::graphStatus CompressorTiling::SetBaseInfo()
         baseParams_->hiddenSize = context_->x.shape->GetStorageShape().GetDim(COMPRESSOR_DIM_INDEX_1);
         baseParams_->cgSize = context_->ropeSin.shape->GetStorageShape().GetDim(COMPRESSOR_DIM_INDEX_0);
     }
-
+    
     baseParams_->headDim = context_->normWeight.shape->GetStorageShape().GetDim(COMPRESSOR_DIM_INDEX_0);
     baseParams_->cmpRatio = static_cast<uint32_t>(*context_->cmpRatio);
     baseParams_->csSize = baseParams_->seqSize - (baseParams_->seqSize % baseParams_->cmpRatio);
@@ -157,7 +157,7 @@ ge::graphStatus CompressorTiling::SetBaseInfo()
     baseParams_->stride = static_cast<uint32_t>(*context_->stride);
 
     OP_LOGI(context_->opName, "[TILING] bSize:%u  tSize:%u cmpRatio:%u coff:%u", baseParams_->batchSize, baseParams_->tokenSize, baseParams_->cmpRatio, coff);
-
+    
     return ge::GRAPH_SUCCESS;
 }
 
@@ -221,7 +221,7 @@ ge::graphStatus CompressorTiling::SetInnerSplitInfo()
         innerSplitParams_->dBaseSize = 128 / coff; // 128：核间切分，D轴基本块大小
     }
     // a5 由于loc更大, mBaseSize x 2
-    // if (socVersion_ == platform_ascendc::SocVersion::ASCEND950) {
+    // if (socVersion_ == platform_ascendc::SocVersion::ASCEND910_95) { 
     //      innerSplitParams_->mBaseSize *= 2;
     //  }
     return ge::GRAPH_SUCCESS;
@@ -237,11 +237,11 @@ ge::graphStatus CompressorTiling::CalcWorkSpace()
     workspaceSize_ += workspaceParams_->mm1ScoreResSize * maxGroupNum * MM1_RES_ELEM_SIZE * workspaceParams_->dbWorkspaceRatio;
     workspaceSize_ += workspaceParams_->vec1TailCacheSize * MM1_RES_ELEM_SIZE * workspaceParams_->dbWorkspaceRatio * 2;   // 2 kv和score
     workspaceSize_ += workspaceParams_->vec1ResSize * maxGroupNum * V1_RES_ELEM_SIZE * workspaceParams_->dbWorkspaceRatio;
-
+    
     if (context_->workSpaces) {
         context_->workSpaces[0] = workspaceSize_;
     }
-
+    
     OP_LOGI(context_->opName, "Tiling info: workspaceSize_ = %zu", workspaceSize_);
     return ge::GRAPH_SUCCESS;
 }
@@ -335,7 +335,7 @@ ge::graphStatus CompressorTiling::GenTilingKey() const
     uint8_t rotaryMode = static_cast<uint8_t>(*context_->rotaryMode);
     uint8_t templateId = static_cast<uint8_t>(context_->templateId);
     uint8_t cacheMode = static_cast<uint8_t>(*context_->cacheMode);
-
+    
     auto xDtype = context_->x.desc->GetDataType();
     if (xDtype == ge::DT_BF16) {
         dtype = 0;
@@ -348,7 +348,7 @@ ge::graphStatus CompressorTiling::GenTilingKey() const
     } else {
         layout = 1;
     }
-
+    
     context_->tilingKey = GET_TPL_TILING_KEY(
         layout,
         dtype,
@@ -449,7 +449,7 @@ std::string LayoutTypeToStr(LayoutType layout) {
             return "BSH";
         case LayoutType::LAYOUT_TH:
             return "TH";
-        default:
+        default: 
             return "UNKNOWN_LAYOUT";
     }
 }
@@ -754,14 +754,14 @@ ge::graphStatus CompressorTiling::CheckRequiredInOutExistence() const
     OP_CHECK_IF(context_->cmpKv.desc == nullptr, OP_LOGE(context_->opName, "tensor cmpKv is nullptr"),
                 return ge::GRAPH_FAILED);
     if (context_->layout == LayoutType::LAYOUT_TH) {
-        OP_CHECK_IF(context_->cuSeqlens.desc == nullptr,
+        OP_CHECK_IF(context_->cuSeqlens.desc == nullptr, 
         OP_LOGE(context_->opName, "In TH layout, tensor cuSeqlens should not be nullptr"), return ge::GRAPH_FAILED);
-        OP_CHECK_IF(context_->cuSeqlens.shape == nullptr,
+        OP_CHECK_IF(context_->cuSeqlens.shape == nullptr, 
         OP_LOGE(context_->opName, "In TH layout, tensor cuSeqlens should not be nullptr"), return ge::GRAPH_FAILED);
     } else {
-        OP_CHECK_IF(context_->cuSeqlens.desc != nullptr,
+        OP_CHECK_IF(context_->cuSeqlens.desc != nullptr, 
         OP_LOGE(context_->opName, "In BSH layout, tensor cuSeqlens must be nullptr"), return ge::GRAPH_FAILED);
-        OP_CHECK_IF(context_->cuSeqlens.shape != nullptr,
+        OP_CHECK_IF(context_->cuSeqlens.shape != nullptr, 
         OP_LOGE(context_->opName, "In TH layout, tensor cuSeqlens must be nullptr"), return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
@@ -803,7 +803,7 @@ ge::graphStatus CompressorTiling::LogErrorShapeConsistency(const std::string &na
 
     const uint32_t actualNum = shape->GetStorageShape().GetDim(dimNum);
     OP_CHECK_IF(actualNum != expectNum,
-                OP_LOGE(context_->opName,
+                OP_LOGE(context_->opName, 
                         "%s shape dim %u, should be equal to %s: %u, but got %u",
                         name.c_str(), dimNum, subName.c_str(), expectNum, actualNum),
                 return ge::GRAPH_FAILED);
@@ -935,7 +935,7 @@ ge::graphStatus CompressorTiling::CheckScenarioConsistency() const
 ge::graphStatus CompressorTiling::CheckBlockDimConstrain() const
 {
     uint32_t minBlockNum = baseParams_->headDim / 64;  // 64 is the largest dBaseSize
-    OP_CHECK_IF(aicNum_ < minBlockNum, OP_LOGE(context_->opName, "aicNum is %d, which should not be less than %d",
+    OP_CHECK_IF(aicNum_ < minBlockNum, OP_LOGE(context_->opName, "aicNum is %d, which should not be less than %d", 
     aicNum_, minBlockNum), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }

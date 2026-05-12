@@ -51,7 +51,7 @@ public:
 private:
     using T = float;
     using X_T = typename AscendC::Conditional<COMP::xDtype == X_DTYPE::BF16, bfloat16_t, half>::type;
-
+    
     __aicore__ inline uint32_t GetMSize(const RunInfo &info, uint32_t coffId);
     __aicore__ inline void CopyXGmToL1(const RunInfo &info, LocalTensor<X_T> xL1Tensor, uint32_t hIdx, uint32_t kBase);
     __aicore__ inline void CopyWeightGmToL1(LocalTensor<X_T> wL1Tensor,

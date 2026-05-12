@@ -37,7 +37,7 @@ bool QuantLightningIndexerMetadataCpuKernel::Prepare(CpuKernelContext &ctx)
     // output
     metaData_ = ctx.Output(static_cast<uint32_t>(ParamId::metaData));
 
-    bool requiredAttrs = GetAttrValue(ctx, "aic_core_num", aicCoreNum_) &&
+    bool requiredAttrs = GetAttrValue(ctx, "aic_core_num", aicCoreNum_) && 
                          GetAttrValue(ctx, "aiv_core_num", aivCoreNum_) &&
                          GetAttrValue(ctx, "soc_version", socVersion_) &&
                          GetAttrValue(ctx, "num_heads_q", numHeadsQ_) &&
@@ -66,7 +66,7 @@ bool QuantLightningIndexerMetadataCpuKernel::Prepare(CpuKernelContext &ctx)
 
 bool QuantLightningIndexerMetadataCpuKernel::ParamsCheck()
 {
-    return (CheckSingleParam() && CheckExistence() && CheckConsistency() && CheckFeature());
+    return (CheckSingleParam() && CheckExistence() && CheckConsistency() && CheckFeature()); 
 }
 
 bool QuantLightningIndexerMetadataCpuKernel::CheckSingleParam()
@@ -113,19 +113,19 @@ bool QuantLightningIndexerMetadataCpuKernel::CheckSingleParam()
     }
     // layout_key 校验
     if (layoutKey_ != "PA_BSND" && layoutKey_ != "TND" && layoutKey_ != "BSND") {
-	KERNEL_LOG_ERROR("For layout_key, layout must be PA_BSND/TND/BSND!");
+    	KERNEL_LOG_ERROR("For layout_key, layout must be PA_BSND/TND/BSND!");
         return false;
     }
     if (layoutQuery_ == "TND" && layoutKey_ == "BSND") {
-	KERNEL_LOG_ERROR("For layout_query TND, layout_key should be PA_BSND/TND!");
-	return false;
+    	KERNEL_LOG_ERROR("For layout_query TND, layout_key should be PA_BSND/TND!");
+    	return false;
     }
     if (layoutQuery_ == "BSND" && layoutKey_ == "TND") {
-	KERNEL_LOG_ERROR("For layout_query BSND, layout_key should be PA_BSND/BSND!");
+    	KERNEL_LOG_ERROR("For layout_query BSND, layout_key should be PA_BSND/BSND!");
         return false;
     }
     // sparse_mode 校验
-    if (sparseMode_ != static_cast<uint32_t>(SparseMode::DEFAULT_MASK) &&
+    if (sparseMode_ != static_cast<uint32_t>(SparseMode::DEFAULT_MASK) && 
         sparseMode_ != static_cast<uint32_t>(SparseMode::RIGHT_DOWN_CAUSAL)) {
         KERNEL_LOG_ERROR("sparse_mode should be 0/3, but got %d", sparseMode_);
         return false;
@@ -194,11 +194,11 @@ bool QuantLightningIndexerMetadataCpuKernel::CheckConsistency()
     int32_t queryBatchSize = GetQueryBatchSize();
     int32_t kvBatchSize = GetKvBatchSize();
     if ((layoutQuery_ == "BSND" || (layoutQuery_ == "TND" && layoutKey_ == "TND")) && queryBatchSize != kvBatchSize) {
-	KERNEL_LOG_ERROR("For the layout_query is BSND or both layout_query and layout_key are TND, the dim of actual_seq_lengths_query and the dim of actual_seq_lengths_key should be equal.");
+    	KERNEL_LOG_ERROR("For the layout_query is BSND or both layout_query and layout_key are TND, the dim of actual_seq_lengths_query and the dim of actual_seq_lengths_key should be equal.");
         return false;
     }
     if (std::abs(queryBatchSize - kvBatchSize) > 1) {
-	KERNEL_LOG_ERROR("The difference between the dim of actual_seq_lengths_query and the dim of actual_seq_lengths_key should not be greater than 1.");
+    	KERNEL_LOG_ERROR("The difference between the dim of actual_seq_lengths_query and the dim of actual_seq_lengths_key should not be greater than 1.");
         return false;
     }
     return true;
@@ -229,7 +229,7 @@ bool QuantLightningIndexerMetadataCpuKernel::CheckFeature()
 
 ValidSocVersion QuantLightningIndexerMetadataCpuKernel::ProcessSocVersion()
 {
-    const std::string ascend950 = "Ascend950";
+    const std::string ascend950 = "Ascend910_95";
     if (socVersion_.find(ascend950) != std::string::npos) {
         return ValidSocVersion::ASCEND950;
     } else {
@@ -356,9 +356,9 @@ int64_t QuantLightningIndexerMetadataCpuKernel::CalcCost(
         }
         return static_cast<int64_t>(alignBasicM * alignBasicS2);
     } else {
-        uint32_t alignCoefM = 16U;
-        uint32_t alignCoefS2 = 64U;
-        alignBasicM = (basicM + alignCoefM - 1U) >> 4U;      // 按alignCoefM对齐，向上取整，4：移位操作实现除16
+        uint32_t alignCoefM = 16U;	 
+        uint32_t alignCoefS2 = 64U;	 
+        alignBasicM = (basicM + alignCoefM - 1U) >> 4U;      // 按alignCoefM对齐，向上取整，4：移位操作实现除16	 
         alignBasicS2 = (basicS2 + alignCoefS2 - 1U) >> 6U;   // 按alignCoefS2对齐，向上取整，6：移位操作实现除64
         return static_cast<int64_t>(6U * alignBasicM + 10U * alignBasicS2);
     }
@@ -738,7 +738,7 @@ void QuantLightningIndexerMetadataCpuKernel::RecordFDInfo(const SplitContext &sp
     result.numOfFdHead++;
 }
 
-void QuantLightningIndexerMetadataCpuKernel::AssignBlockToCore(uint32_t coreNum, const SplitContext &splitContext,
+void QuantLightningIndexerMetadataCpuKernel::AssignBlockToCore(uint32_t coreNum, const SplitContext &splitContext, 
                                                                AssignContext &assignContext, SplitResult &result)
 {
     const CostInfo &costInfo = splitContext.costInfo;
@@ -747,14 +747,14 @@ void QuantLightningIndexerMetadataCpuKernel::AssignBlockToCore(uint32_t coreNum,
     assignContext.coreCache.costLimit = assignContext.unassignedCost / (coreNum - assignContext.curCoreIdx);
     if (!supportFd_){
         assignContext.coreCache.costLimit = costInfo.maxS1GCost > assignContext.coreCache.costLimit ? costInfo.maxS1GCost :assignContext.coreCache.costLimit;
-    }
+    }      
     // 1、按整batch分配
     AssignByBatch(splitContext, assignContext);
     // 2、按行分配
     AssignByRow(splitContext, assignContext);
     // 3、按块分配
     if (supportFd_){
-    AssignByBlock(splitContext, assignContext);
+    AssignByBlock(splitContext, assignContext);            
         // 4、强制分配
         if (assignContext.coreCache.block == 0) {
             ForceAssign(splitContext, assignContext);

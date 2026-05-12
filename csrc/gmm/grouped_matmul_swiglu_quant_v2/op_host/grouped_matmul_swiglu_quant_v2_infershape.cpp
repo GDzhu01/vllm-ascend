@@ -116,10 +116,10 @@ static graphStatus InferDataType4GroupedMatmulSwigluQuantV2(gert::InferDataTypeC
                             "FLOAT8_E5M2, FLOAT4_E2M1, INT_8, HIFLOAT8, but actual value of x is %s, weight is %s.",
                             ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
                             ge::TypeUtils::DataTypeToSerialString(weightDtype).c_str()), return GRAPH_FAILED);
-
+        
         OP_CHECK_IF(*quantMode != QUANT_MODE_MX_TYPE && *quantMode != QUANT_MODE_PERTOKEN_TYPE,
                 OP_LOGE(context->GetNodeName(), "On this platform, quantMode should be 0(Pertoken) or 2(MX),"
-                            " but actual value is %ld.", *quantMode), return GRAPH_FAILED);
+                            " but actual value is %ld.", *quantMode), return GRAPH_FAILED); 
     }
     auto weightScaleDtype = context->GetDynamicInputDataType(WEIGHTSCALE_INDEX, 0);
     if (*quantMode == QUANT_MODE_MX_TYPE) {

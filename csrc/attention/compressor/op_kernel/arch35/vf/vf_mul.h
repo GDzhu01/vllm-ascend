@@ -352,7 +352,7 @@ __simd_vf__ void MulReduceSumbase512VFImpl(__ubuf__ T *kvAddr, __ubuf__ T *score
 /**
  * @brief MulReduceSumbaseVF 包含mul和reducesum
  * @param outputLocal 输出tensor []
- * @param coff
+ * @param coff 
  * @param cmpRatio 压缩块大小
  * @param baseD  核内d轴切分大小
  * @param scLoopCnt  sc数,

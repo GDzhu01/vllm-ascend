@@ -49,16 +49,16 @@ public:
     {
         this->topK = topK;
     }
-
+    
     __aicore__ inline void InitBuffers(LocalTensor<uint32_t>& sharedTmpBuffer)
     {
         tmpIdxLocal = sharedTmpBuffer[0];
         tmpValueLocal = tmpIdxLocal[topK];
         histogramsLocal = tmpValueLocal[topK];
         idx0Local = histogramsLocal[256];
-        idx1Local = idx0Local[256];
-        idx2Local = idx1Local[256];
-        idx3Local = idx2Local[256];
+        idx1Local = idx0Local[256]; 
+        idx2Local = idx1Local[256]; 
+        idx3Local = idx2Local[256]; 
         nkValueLocal = idx3Local[256];
         outputValueLocal = nkValueLocal[64];
     }
@@ -111,7 +111,7 @@ public:
         this->topK = topK;
         this->trunkLen =  trunkLen;
     }
-
+    
     __aicore__ inline void InitBuffers(LocalTensor<uint32_t>& sharedTmpBuffer)
     {
         LocalTensor<uint32_t> hisIndexLocal1 = sharedTmpBuffer[0];
@@ -134,7 +134,7 @@ public:
             PipeBarrier<PIPE_V>();
             Cast(indicesOutLocal, tmpIndexLocal, RoundMode::CAST_NONE, topK);
             return;
-        }
+        } 
 
         if (loopIdx == 0) {
             topkb16gather::LiTopKVF<true>(tmpIndexLocal, hisValueLocal, mrgValueLocal, histogramsLocal, idxHighLocal, idxLowLocal, nkValueLocal, topK, s2SeqLen);
@@ -143,7 +143,7 @@ public:
         } else {
             topkb16gather::LiTopKVF<true>(tmpIndexLocal, hisValueLocal, mrgValueLocal, histogramsLocal, idxHighLocal, idxLowLocal, nkValueLocal, topK, s2SeqLen);
             PipeBarrier<PIPE_V>();
-            topkb16gather::LiTopKGatherVF(hisIndexLocal[(loopIdx + 1) % 2], hisValueLocal, mrgValueLocal, tmpIndexLocal, hisIndexLocal[loopIdx % 2],
+            topkb16gather::LiTopKGatherVF(hisIndexLocal[(loopIdx + 1) % 2], hisValueLocal, mrgValueLocal, tmpIndexLocal, hisIndexLocal[loopIdx % 2], 
                                     topK, loopIdx * trunkLen - QLICommon::Align(topK, (uint32_t)256), s2SeqLen);
             if (loopIdx == s2LoopNum - 1) {
                 PipeBarrier<PIPE_V>();

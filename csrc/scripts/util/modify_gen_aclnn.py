@@ -21,7 +21,7 @@ def shell_exec(cmd, shell=False):
         ps = subprocess.Popen(cmd, shell)
         ps.communicate(timeout=180)
     except BaseException as e:
-        log.error("shell_exec error: %s", e)
+        log.error(f"shell_exec error: {e}")
         sys.exit(1)
 
 

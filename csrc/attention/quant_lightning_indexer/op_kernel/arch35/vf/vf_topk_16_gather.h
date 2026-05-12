@@ -17,7 +17,7 @@
 #define VF_TOP_K_16_GATHER_H
 
 namespace topkb16gather {
-
+    
 template<typename T>
 __simd_vf__ void HistogramsHighVFImpl(__ubuf__ uint32_t* histogramsBuf, __ubuf__ uint16_t* inputBuf, uint16_t vfLoop, bool init)
 {
@@ -25,7 +25,7 @@ __simd_vf__ void HistogramsHighVFImpl(__ubuf__ uint32_t* histogramsBuf, __ubuf__
     MicroAPI::MaskReg pregB16 = MicroAPI::CreateMask<uint16_t, MicroAPI::MaskPattern::ALL>();
     MicroAPI::MaskReg pregB8 = MicroAPI::CreateMask<uint8_t, MicroAPI::MaskPattern::ALL>();
 
-    // 计算直方图cout0 0-127 cout1 128-255
+    // 计算直方图cout0 0-127 cout1 128-255 
     MicroAPI::RegTensor<uint16_t> cout0;
     MicroAPI::RegTensor<uint16_t> cout1;
     MicroAPI::Duplicate(cout0, 0);
@@ -127,7 +127,7 @@ __simd_vf__ void HistogramsLowVFImpl(__ubuf__ uint32_t* histogramsBuf, __ubuf__ 
 
     MicroAPI::MaskReg pregEQ;
 
-    // 计算直方图0-127 128-255
+    // 计算直方图0-127 128-255 
     MicroAPI::RegTensor<uint16_t> cout0;
     MicroAPI::RegTensor<uint16_t> cout1;
     MicroAPI::Duplicate(cout0, 0);
@@ -240,7 +240,7 @@ __simd_vf__ void FindIdxGTOutputVFImpl(__ubuf__ uint16_t* outputIdxBuf, __ubuf__
 
     for (uint16_t i = 0; i < (uint16_t)(vfLoop); ++i) {
         MicroAPI::Arange(idxC, beginIdx + i * 128);
-
+        
         MicroAPI::LoadAlign<uint16_t, MicroAPI::LoadDist::DIST_NORM>(vregInput, inputValueBuf + i * 128);
 
         MicroAPI::Compare<uint16_t, CMPMODE::GT>(poutGT, vregInput, (MicroAPI::RegTensor<uint16_t>&)kthValue, pregB16);
@@ -320,7 +320,7 @@ __simd_vf__ void FindRealIndexVFImpl(__ubuf__ uint32_t* outputIdxBuf, __ubuf__ u
 
         MicroAPI::Compares<uint32_t, CMPMODE::GT>(pregNow, (MicroAPI::RegTensor<uint32_t>&)tmpIdx, topK - 1, pregB32);
         MicroAPI::Xor(pregHis, pregNow, pregB32, pregB32);
-
+    
         MicroAPI::Gather(outputGatherIdx, hisIdxBuf, (MicroAPI::RegTensor<uint32_t>&)tmpIdx, pregHis);
         MicroAPI::Adds(outputAddsIdx, (MicroAPI::RegTensor<uint32_t>&)tmpIdx, loopIndex, pregNow);
 
@@ -335,9 +335,9 @@ __simd_vf__ void FindRealIndexVFImpl(__ubuf__ uint32_t* outputIdxBuf, __ubuf__ u
  * @param tmpIdxLocal Temp阶段输出的TopKIndex;如果s2SeqLen < 16K作为最终输出 validLen * 2B
  * @param outputValueLocal 如果s2SeqLen > 16K并且是首轮输出Value topK * 2B
  * @param inputValueLocal 输入Value validLen * 2B
- * @param histogramsLocal 直方图 256 * 4B
- * @param idxHighLocal 目标桶高八位 256 * 4B
- * @param idxLowLocal 目标桶低八位 256 * 4B
+ * @param histogramsLocal 直方图 256 * 4B 
+ * @param idxHighLocal 目标桶高八位 256 * 4B 
+ * @param idxLowLocal 目标桶低八位 256 * 4B 
  * @param nkValueLocal 存储next_k的值 64 * 4B
  * @param topK topK元素
  * @param validLen 有效元素个数:QLICommon::Align(topkCountAlign256_ + validTrunkLen, (uint32_t)256)
@@ -399,7 +399,7 @@ __aicore__ inline void LiTopKVF(const LocalTensor<uint16_t>& tmpIdxLocal,
  * @param outputValueLocal 输出Value topK * 2B(以后需要输出实际value使用)
  * @param inputValueLocal 输入Value validLen * 2B
  * @param tmpIdxLocal 本轮tmpIdx输入 validLen * 2B (0 ~ validLen - 1)
- * @param hisIdxLocal 上一轮实际Idx输入 有效:topK * 4B
+ * @param hisIdxLocal 上一轮实际Idx输入 有效:topK * 4B 
  * @param topK topK元素个数
  * @param loopBasicIdx 当前循环需要加上得基准Index
  * @param validLen 有效元素个数

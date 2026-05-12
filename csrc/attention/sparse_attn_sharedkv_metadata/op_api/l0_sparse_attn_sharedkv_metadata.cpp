@@ -54,9 +54,9 @@ const aclTensor* SparseAttnSharedkvMetadata(
     int64_t aivCoreNum,
     const aclTensor* metaData,
     aclOpExecutor* executor) {
-    L0_DFX(SparseAttnSharedkvMetadata, cuSeqLensQOptional, cuSeqLensOriKvOptional, cuSeqLensCmpKvOptional, sequsedQOptional, sequsedKvOptional, numHeadsQ, numHeadsKv, headDim, batchSizeOptional,
-        maxSeqlenQOptional, maxSeqlenKvOptional, oriTopKOptional, cmpTopKOptional, cmpRatioOptional, oriMaskModeOptional,
-        cmpMaskModeOptional, oriWinLeftOptional, oriWinRightOptional, layoutQOptional, layoutKvOptional,
+    L0_DFX(SparseAttnSharedkvMetadata, cuSeqLensQOptional, cuSeqLensOriKvOptional, cuSeqLensCmpKvOptional, sequsedQOptional, sequsedKvOptional, numHeadsQ, numHeadsKv, headDim, batchSizeOptional, 
+        maxSeqlenQOptional, maxSeqlenKvOptional, oriTopKOptional, cmpTopKOptional, cmpRatioOptional, oriMaskModeOptional, 
+        cmpMaskModeOptional, oriWinLeftOptional, oriWinRightOptional, layoutQOptional, layoutKvOptional, 
         hasOriKvOptional, hasCmpKvOptional, socVersion, aicCoreNum, aivCoreNum, metaData);
 
     static internal::AicpuTaskSpace space(
@@ -64,15 +64,15 @@ const aclTensor* SparseAttnSharedkvMetadata(
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
         SparseAttnSharedkvMetadata,
-        OP_ATTR_NAMES({"num_heads_q", "num_heads_kv", "head_dim", "batch_size", "max_seqlen_q", "max_seqlen_kv",
+        OP_ATTR_NAMES({"num_heads_q", "num_heads_kv", "head_dim", "batch_size", "max_seqlen_q", "max_seqlen_kv", 
                      "ori_topk", "cmp_topk", "cmp_ratio", "ori_mask_mode", "cmp_mask_mode",
                      "ori_win_left", "ori_win_right", "layout_q", "layout_kv",
                      "has_ori_kv", "has_cmp_kv", "soc_version", "aic_core_num",
                      "aiv_core_num"}),
         OP_INPUT(cuSeqLensQOptional, cuSeqLensOriKvOptional, cuSeqLensCmpKvOptional, sequsedQOptional, sequsedKvOptional), OP_OUTPUT(metaData),
-        OP_ATTR(numHeadsQ, numHeadsKv, headDim, batchSizeOptional,
-              maxSeqlenQOptional, maxSeqlenKvOptional, oriTopKOptional, cmpTopKOptional, cmpRatioOptional, oriMaskModeOptional,
-              cmpMaskModeOptional, oriWinLeftOptional, oriWinRightOptional, layoutQOptional, layoutKvOptional,
+        OP_ATTR(numHeadsQ, numHeadsKv, headDim, batchSizeOptional, 
+              maxSeqlenQOptional, maxSeqlenKvOptional, oriTopKOptional, cmpTopKOptional, cmpRatioOptional, oriMaskModeOptional, 
+              cmpMaskModeOptional, oriWinLeftOptional, oriWinRightOptional, layoutQOptional, layoutKvOptional, 
               hasOriKvOptional, hasCmpKvOptional, socVersion,
               aicCoreNum, aivCoreNum));
         OP_CHECK(ret == ACL_SUCCESS,

@@ -1,10 +1,19 @@
 /**
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+ * This program is free software, you can redistribute it and/or modify.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+========
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -15,13 +24,19 @@
 
 #pragma once
 
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+========
 #include <memory>
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
 #include <sstream>
 #include <exe_graph/runtime/tiling_context.h>
 #include <graph/utils/type_utils.h>
 #include "tiling/platform/platform_ascendc.h"
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+========
 #include "platform/soc_spec.h"
 #include "log/log.h"
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
 #include "error_log.h"
 
 #ifdef ASCENDC_OP_TEST
@@ -31,6 +46,19 @@
 #endif
 
 namespace Ops {
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+namespace Transformer {
+namespace OpTiling {
+
+struct AiCoreParams {
+    uint64_t ubSize = 0;
+    uint64_t blockDim = 0;
+    uint64_t aicNum = 0;
+    uint64_t l1Size = 0;
+    uint64_t l0aSize = 0;
+    uint64_t l0bSize = 0;
+    uint64_t l0cSize = 0;
+========
 namespace NN {
 namespace Optiling {
 
@@ -43,6 +71,7 @@ struct AiCoreParams {
     uint64_t l0aSize = 0UL;
     uint64_t l0bSize = 0UL;
     uint64_t l0cSize = 0UL;
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
 };
 
 struct CompileInfoCommon {
@@ -59,18 +88,56 @@ struct CompileInfoCommon {
     uint32_t rsvd;
 };
 
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+struct FlashAttentionScoreGradCompileInfo {
+    uint32_t aivNum;
+    uint32_t aicNum;
+    uint64_t ubSize;
+    uint64_t l1Size;
+    uint64_t l0aSize;
+    uint64_t l0bSize;
+    uint64_t l0cSize;
+    uint64_t l2CacheSize;
+    int64_t coreNum;
+    platform_ascendc::SocVersion socVersion;
+};
+
+struct FACompileInfoCommon {
+    uint32_t aivNum;
+    uint32_t aicNum;
+    uint64_t ubSize;
+    uint64_t l1Size;
+    uint64_t l0aSize;
+    uint64_t l0bSize;
+    uint64_t l0cSize;
+    uint64_t l2CacheSize;
+    int64_t coreNum;
+    int32_t socVersion;
+    uint32_t rsvd;
+};
+
+class TilingBaseClass {
+========
 class TilingBaseClass
 {
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
 public:
     explicit TilingBaseClass(gert::TilingContext* context) : context_(context)
     {}
 
     virtual ~TilingBaseClass() = default;
 
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+    // Tiling execution framework
+    //     1. GRAPH_SUCCESS: Success, and no need to continue executing subsequent Tiling class implementations
+    //     2. GRAPH_FAILED: Failure, abort the entire Tiling process
+    //     3. GRAPH_PARAM_INVALID: This class does not support, need to continue executing other Tiling class implementations
+========
     // Tiling执行框架
     //     1、GRAPH_SUCCESS: 成功，并且不需要继续执行后续Tiling类的实现
     //     2、GRAPH_FAILED: 失败，中止整个Tiling流程
     //     3、GRAPH_PARAM_INVALID: 本类不支持，需要继续往下执行其他Tiling类的实现
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
     ge::graphStatus DoTiling()
     {
         auto ret = GetShapeAttrsInfo();
@@ -105,7 +172,11 @@ public:
         return ge::GRAPH_SUCCESS;
     }
 
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+    // Update context
+========
     // 更新 context
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
     virtual void Reset(gert::TilingContext* context)
     {
         context_ = context;
@@ -113,6 +184,23 @@ public:
 
 protected:
     virtual bool IsCapable() = 0;
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+    // 1. Get platform information such as CoreNum, UB/L1/L0C resource sizes
+    virtual ge::graphStatus GetPlatformInfo() = 0;
+    // 2. Get INPUT/OUTPUT/ATTR information
+    virtual ge::graphStatus GetShapeAttrsInfo() = 0;
+    // 3. Calculate data splitting TilingData
+    virtual ge::graphStatus DoOpTiling() = 0;
+    // 4. Calculate high-level API TilingData
+    virtual ge::graphStatus DoLibApiTiling() = 0;
+    // 5. Calculate TilingKey
+    [[nodiscard]] virtual uint64_t GetTilingKey() const = 0;
+    // 6. Calculate Workspace size
+    virtual ge::graphStatus GetWorkspaceSize() = 0;
+    // 7. Save Tiling data
+    virtual ge::graphStatus PostTiling() = 0;
+    // 8. Dump Tiling data
+========
     // 1、获取平台信息比如CoreNum、UB/L1/L0C资源大小
     virtual ge::graphStatus GetPlatformInfo() = 0;
     // 2、获取INPUT/OUTPUT/ATTR信息
@@ -128,6 +216,7 @@ protected:
     // 7、保存Tiling数据
     virtual ge::graphStatus PostTiling() = 0;
     // 8、Dump Tiling数据
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
     virtual void DumpTilingInfo()
     {
         int32_t enable = CheckLogLevel(static_cast<int32_t>(OP), DLOG_DEBUG);
@@ -175,7 +264,11 @@ protected:
     }
 
     [[nodiscard]] std::string GetTensorDebugStr(
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+        const gert::StorageShape* shape, const gert::CompileTimeTensorDesc* tensor)
+========
         const gert::StorageShape* shape, const gert::CompileTimeTensorDesc* tensor) const
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h
     {
         if (shape == nullptr || tensor == nullptr) {
             return "nil ";
@@ -229,6 +322,11 @@ protected:
     AiCoreParams aicoreParams_;
 };
 
+<<<<<<<< HEAD:csrc/moe/chunk_fwd_o/tiling_base/tiling_base.h
+} // namespace OpTiling
+} // namespace Transformer
+} // namespace Ops
+========
 } // namespace Optiling
 } // namespace NN
 } // namespace Ops
@@ -236,3 +334,4 @@ protected:
 namespace optiling {
 using Ops::NN::Optiling::TilingBaseClass;
 } // namespace optiling
+>>>>>>>> 05b862fc (feat(csrc): support deepseek v4):csrc/moe/dequant_swiglu_quant/tiling_base/tiling_base.h

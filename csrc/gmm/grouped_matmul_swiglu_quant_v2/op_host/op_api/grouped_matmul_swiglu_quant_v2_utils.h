@@ -204,11 +204,11 @@ protected:
             return false;
         }
         ge::DataType dequantDtype = static_cast<ge::DataType>(gmmDsqParams_.dequantDtype);
-        if (gmmDsqParams_.quantMode == QUNAT_MODE_MX && dequantDtype != ge::DT_FLOAT) {
-             OP_LOGE(ACLNN_ERR_PARAM_INVALID,
-                     "In mx quant mode, dequantDtype should be 0, but actual value is %lu.",
-                     gmmDsqParams_.dequantDtype);
-             return false;
+        if (gmmDsqParams_.quantMode == QUNAT_MODE_MX && dequantDtype != ge::DT_FLOAT) {	 
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID,	 
+                     "In mx quant mode, dequantDtype should be 0, but actual value is %lu.", 	 
+                     gmmDsqParams_.dequantDtype);	 
+             return false;	 
         }
         if (gmmDsqParams_.quantMode == QUNAT_MODE_PERTOKEN && dequantDtype != ge::DT_FLOAT && dequantDtype != ge::DT_BF16 &&
             dequantDtype != ge::DT_FLOAT16) {
@@ -724,14 +724,14 @@ and greater or equal to 4, but actual value is %lu.",
         const aclTensor *output = gmmDsqParams_.output;
         const aclTensor *outputScale = gmmDsqParams_.outputScale;
         if(std::find(X_DTYPE_SUPPORT_LIST.begin(), X_DTYPE_SUPPORT_LIST.end(), xDtype) == X_DTYPE_SUPPORT_LIST.end() &&
-           std::find(X_DTYPE_SUPPORT_LIST_MXFP4.begin(), X_DTYPE_SUPPORT_LIST_MXFP4.end(), xDtype) == X_DTYPE_SUPPORT_LIST_MXFP4.end() &&
+           std::find(X_DTYPE_SUPPORT_LIST_MXFP4.begin(), X_DTYPE_SUPPORT_LIST_MXFP4.end(), xDtype) == X_DTYPE_SUPPORT_LIST_MXFP4.end() && 
            std::find(XW_DTYPE_SUPPORT_LIST_PERTOKEN.begin(), XW_DTYPE_SUPPORT_LIST_PERTOKEN.end(), xDtype) == XW_DTYPE_SUPPORT_LIST_PERTOKEN.end()){
             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Quant case with x dtype %s is not supported; supported types are: INT8, FLOAT8_E4M3FN, "
                         "FLOAT8_E5M2, HIFLOAT8, and FLOAT4_E2M1.", op::ToString(xDtype).GetString());
             return false;
         }
         if(std::find(WEIGHT_DTYPE_SUPPORT_LIST.begin(), WEIGHT_DTYPE_SUPPORT_LIST.end(), weightDtype) == WEIGHT_DTYPE_SUPPORT_LIST.end() &&
-           std::find(WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.begin(), WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.end(), weightDtype) == WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.end() &&
+           std::find(WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.begin(), WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.end(), weightDtype) == WEIGHT_DTYPE_SUPPORT_LIST_MXFP4.end() && 
            std::find(XW_DTYPE_SUPPORT_LIST_PERTOKEN.begin(), XW_DTYPE_SUPPORT_LIST_PERTOKEN.end(), weightDtype) == XW_DTYPE_SUPPORT_LIST_PERTOKEN.end()){
             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Quant case with weight dtype %s is not supported; supported types are: INT8, FLOAT8_E4M3FN, "
                         "FLOAT8_E5M2, HIFLOAT8, and FLOAT4_E2M1.", op::ToString(weightDtype).GetString());

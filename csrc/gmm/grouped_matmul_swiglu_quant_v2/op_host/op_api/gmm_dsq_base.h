@@ -113,10 +113,10 @@ protected:
             op::Format weightViewFormat = w->GetViewFormat();
             bool isSingle = (wLength == 1);
             // 检查权重维度
-            OP_CHECK_WRONG_DIMENSION(w,
-                (isSingle ?
+            OP_CHECK_WRONG_DIMENSION(w, 
+                (isSingle ? 
                     (IsPrivateFormat(weightViewFormat) ? WEIGHT_NZ_DIM_LIMIT : WEIGHT_ND_DIM_LIMIT) :
-                    (IsPrivateFormat(weightViewFormat) ? MULTI_WEIGHT_NZ_DIM_LIMIT : MULTI_WEIGHT_ND_DIM_LIMIT)),
+                    (IsPrivateFormat(weightViewFormat) ? MULTI_WEIGHT_NZ_DIM_LIMIT : MULTI_WEIGHT_ND_DIM_LIMIT)), 
                 return false);
             // 检查权重Scale维度
             OP_CHECK_WRONG_DIMENSION(wScale,
@@ -156,7 +156,7 @@ protected:
         op::Shape weightScaleExpectShape1 = {e, n};
         op::Shape weightScaleExpectShape2 = {n};
 
-        const aclTensor* w = (*gmmDsqParams_.weight)[0];
+        const aclTensor* w = (*gmmDsqParams_.weight)[0]; 
         const aclTensor* wScale = (*gmmDsqParams_.weightScale)[0];
 
         op::Format wFormat = w->GetViewFormat();
@@ -207,7 +207,7 @@ protected:
         size_t wLength = gmmDsqParams_.weight->Size();
 
         for (size_t i = 0; i < wLength; i++) {
-            const aclTensor* w = (*gmmDsqParams_.weight)[0];
+            const aclTensor* w = (*gmmDsqParams_.weight)[0]; 
             const aclTensor* wScale = (*gmmDsqParams_.weightScale)[0];
             op::Format wFormat = w->GetViewFormat();
             op::Format storageFormat = w->GetStorageFormat();
@@ -316,7 +316,7 @@ protected:
         // 辅助矩阵的shape期望为[E, N]
         op::Shape weightAssistMatrixExpectShape = {e, n};
 
-        const aclTensor* w = (*gmmDsqParams_.weight)[0];
+        const aclTensor* w = (*gmmDsqParams_.weight)[0]; 
         const aclTensor* weightAssistMatrix = nullptr;
         if (gmmDsqParams_.weightAssistMatrix != nullptr && (*gmmDsqParams_.weightAssistMatrix)[0] != nullptr) {
             weightAssistMatrix = (*gmmDsqParams_.weightAssistMatrix)[0];
@@ -350,7 +350,7 @@ protected:
         size_t wLength = gmmDsqParams_.weight->Size();
 
         for (size_t i = 0; i < wLength; i++) {
-            const aclTensor* w = (*gmmDsqParams_.weight)[i];
+            const aclTensor* w = (*gmmDsqParams_.weight)[i]; 
             const aclTensor* weightAssistMatrix = nullptr;
             if (gmmDsqParams_.weightAssistMatrix != nullptr && (*gmmDsqParams_.weightAssistMatrix)[i] != nullptr) {
                 weightAssistMatrix = (*gmmDsqParams_.weightAssistMatrix)[i];
@@ -582,13 +582,13 @@ protected:
                     UnpackInt32ToInt4(w, "weight");
                 }
             }
-
+            
             if (transposeWeight == true){
                 const aclTensor* w = (*gmmDsqParams_.weight)[0];
                 bool isNZ = w->GetStorageFormat() == op::Format::FORMAT_FRACTAL_NZ;
                 if (!isNZ) {
                     OP_LOGE(ACLNN_ERR_PARAM_INVALID,
-                            "In weight Transpose scenario.weight Format expect is FRACTAL_NZ when weight is transposed, but got [%s].",
+                            "In weight Transpose scenario.weight Format expect is FRACTAL_NZ when weight is transposed, but got [%s].", 
                             op::ToString(w->GetStorageFormat()).GetString());
                     return false;
                 }

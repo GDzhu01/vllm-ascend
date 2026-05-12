@@ -85,10 +85,10 @@ public:
     __aicore__ inline SparseAttnSharedkvScfa(){};
     __aicore__ inline void Init(__gm__ uint8_t *query, __gm__ uint8_t *oriKV, __gm__ uint8_t *cmpKV,
                                 __gm__ uint8_t *cmpSparseIndices, __gm__ uint8_t *oriBlockTable,
-                                __gm__ uint8_t *cmpBlockTable, __gm__ uint8_t *cuSeqlensQ,
+                                __gm__ uint8_t *cmpBlockTable, __gm__ uint8_t *cuSeqlensQ, 
                                 __gm__ uint8_t* cuSeqlensKV, __gm__ uint8_t *cuSeqlensCmpKV,
-                                __gm__ uint8_t *seqUsedQ, __gm__ uint8_t *seqUsedKV, __gm__ uint8_t *sinks,
-                                __gm__ uint8_t *metadata, __gm__ uint8_t *attentionOut,
+                                __gm__ uint8_t *seqUsedQ, __gm__ uint8_t *seqUsedKV, __gm__ uint8_t *sinks, 
+                                __gm__ uint8_t *metadata, __gm__ uint8_t *attentionOut, 
                                 __gm__ uint8_t *softmaxLse, __gm__ uint8_t *workspace,
                                 const SparseAttnSharedkvTilingData *__restrict tiling, __gm__ uint8_t *gmTiling,
                                 TPipe *tPipe);
@@ -167,7 +167,7 @@ private:
     __aicore__ inline void InitBuffers();
     __aicore__ inline void InitActualSeqLen(__gm__ uint8_t *actualSeqLengthsQ, __gm__ uint8_t *actualSeqLengthsKV);
     __aicore__ inline void InitActualSeqLen(__gm__ uint8_t *actualSeqLengthsQ, __gm__ uint8_t *actualSeqLengthsKV,
-	                                        __gm__ uint8_t *actualSeqLengthsCmpKV);
+ 	                                        __gm__ uint8_t *actualSeqLengthsCmpKV);
     __aicore__ inline void InitOutputSingleCore();
     // ================================Process functions================================
     __aicore__ inline void ProcessBalance();
@@ -738,7 +738,7 @@ __aicore__ inline void SparseAttnSharedkvScfa<SAST>::ProcessBalance()
                 cmpS2Size = tempLoopInfo.actCmpS2Size;
                 cmpSplitNum = CeilDiv(cmpS2Size, constInfo.s2BaseSize);
             }
-
+            
             uint32_t s2SplitNum = oriSplitNum + cmpSplitNum;
             constexpr uint32_t V0_SPLIT = 32; // align to 32
             uint32_t v0OriSize = CeilDiv(oriS2Size * cmpS2Size, oriS2Size + cmpS2Size);

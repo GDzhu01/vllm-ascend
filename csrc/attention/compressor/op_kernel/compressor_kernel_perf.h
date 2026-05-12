@@ -220,7 +220,7 @@ __aicore__ inline void CompressorKernelPerf<COMP>::Init(
 #else
         blockCube_.InitParams(constInfo, tools_);
 #endif
-        blockCube_.Init(x, wKv, wGate, stateCache, ape, normWeight, ropeSin, ropeCos,
+        blockCube_.Init(x, wKv, wGate, stateCache, ape, normWeight, ropeSin, ropeCos, 
             stateBlockTable, cuSeqlens, seqUsed, startPos, cmpKvOut);
         blockCube_.InitBuffers(pipe_);
 #if __CCE_AICORE__ == 310
@@ -230,12 +230,12 @@ __aicore__ inline void CompressorKernelPerf<COMP>::Init(
 #endif
     } else {
         blockVec_.InitParams(constInfo, tools_);
-        blockVec_.Init(x, wKv, wGate, stateCache, ape, normWeight, ropeSin, ropeCos, stateBlockTable,
+        blockVec_.Init(x, wKv, wGate, stateCache, ape, normWeight, ropeSin, ropeCos, stateBlockTable, 
                         cuSeqlens, seqUsed, startPos, cmpKvOut);
         blockVec_.InitBuffers(pipe_);
 #if __CCE_AICORE__ == 310
         blockVec_.InitVec1GlobalTensor(Vec1InputKvGm, Vec1InputScoreGm, vec1KvCacheGm, vec1ScoreCacheGm, vec1ResGm, vec2InputGm);
-#else
+#else 
         blockVec_.InitVec1GlobalTensor(Vec1InputKvGm, Vec1InputScoreGm, vec1KvCacheGm, vec1ScoreCacheGm, vec1ResGm, vec2InputGm);
 #endif
     }
@@ -253,7 +253,7 @@ __aicore__ inline void CompressorKernelPerf<COMP>::InitTilingData() {
     constInfo.normEps = tilingData_->baseParams.normEps;
     constInfo.reciprocalD = tilingData_->baseParams.reciprocalD;
     constInfo.usedCoreNum = tilingData_->baseParams.usedCoreNum;
-
+    
     constInfo.blockNum = tilingData_->pageAttentionParams.blockNum;
     constInfo.blockSize = tilingData_->pageAttentionParams.blockSize;
     constInfo.maxBlockNumPerBatch = tilingData_->pageAttentionParams.maxBlockNumPerBatch;
@@ -360,7 +360,7 @@ __aicore__ inline void CompressorKernelPerf<COMP>::SkipInvalidBatch(BatchInfo &b
 
 
 template <typename COMP>
-__aicore__ inline void CompressorKernelPerf<COMP>::UpdateCurGroup(BasicBlockInfo &basicBlockInfo,
+__aicore__ inline void CompressorKernelPerf<COMP>::UpdateCurGroup(BasicBlockInfo &basicBlockInfo, 
                                 BatchInfo batchInfo, uint32_t &curGroupQuota, uint32_t curDealSeq)
 {
     // 更新当前组的信息
@@ -449,7 +449,7 @@ __aicore__ inline BasicBlockInfo CompressorKernelPerf<COMP>::SkipOneLoop(BatchIn
         uint32_t remaining = totalDataSize - currentGroupStart;
         basicBlockInfo.dealSeqCnt = (remaining < constInfo.mBaseSize) ? remaining : constInfo.mBaseSize;
     }
-
+    
     // printf("[SkipOneLoop] bStart:%u, sStart:%u, dealTcNum:%u, dealScSize:%u\n", basicBlockInfo.bIdx, basicBlockInfo.sIdx, basicBlockInfo.dealTcNum, basicBlockInfo.compressedTcNum);
     return basicBlockInfo;
 }
@@ -539,7 +539,7 @@ __aicore__ inline void CompressorKernelPerf<COMP>::InitWorkspace(__gm__ uint8_t 
 
     uint64_t beforeVecOffset = offset;
 
-    // vec1Res
+    // vec1Res 
     vec1ResGm.SetGlobalBuffer(
         (__gm__ VEC1_OUT_T *)(workspace + offset));
     offset +=  constInfo.dbWorkspaceRatio * constInfo.coreGroupNum * constInfo.vec1ResSize * sizeof(VEC1_OUT_T);

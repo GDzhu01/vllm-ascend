@@ -25,7 +25,7 @@
 // 可表示的tilingkey范围为64bit，注意不可超过限制
 ASCENDC_TPL_ARGS_DECL(compressor, // 算子唯一标识，与opType保持一致
     // 可能需要切分之后的headdim
-    // bit:0 LAYOUT 0:BSH 1:TH
+    // bit:0 LAYOUT 0:BSH 1:TH 
     ASCENDC_TPL_UINT_DECL(X_LAYOUT, ASCENDC_TPL_1_BW, ASCENDC_TPL_UI_LIST, 0, 1),
     // bit:1-4 x的dtype  0:BF16 1:FP16
     ASCENDC_TPL_UINT_DECL(X_DTYPE, ASCENDC_TPL_4_BW, ASCENDC_TPL_UI_LIST, 0, 1),

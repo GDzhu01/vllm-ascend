@@ -436,16 +436,16 @@ ge::graphStatus SASInfoParser::GetN2Size()
 {
     if (opParamInfo_.oriKv.tensor != nullptr) {
         n2Size_ = GetAxisNum(oriKvShape_, SASAxis::N, kvLayout_);
-    }
+    } 
     if (opParamInfo_.cmpKv.tensor != nullptr) {
         uint32_t cmpKvN2Size_ = GetAxisNum(cmpKvShape_, SASAxis::N, kvLayout_);
         if (perfMode_ == SASTemplateMode::SCFA_TEMPLATE_MODE){
             uint32_t cmpSparseIndicesN2Size_ = GetAxisNum(cmpSparseIndicesShape_, SASAxis::N, cmpSparseIndicesLayout_);
-            OP_CHECK_IF(cmpKvN2Size_ != n2Size_ || n2Size_ != cmpSparseIndicesN2Size_,
+            OP_CHECK_IF(cmpKvN2Size_ != n2Size_ || n2Size_ != cmpSparseIndicesN2Size_, 
             OP_LOGE(opName_, "N2 size check failed! Expected ori_kv's N2(%u) == cmp_sparse_indices's N2(%u).", n2Size_, cmpSparseIndicesN2Size_),
             return ge::GRAPH_FAILED);
         }
-        OP_CHECK_IF(cmpKvN2Size_ != n2Size_,
+        OP_CHECK_IF(cmpKvN2Size_ != n2Size_, 
                     OP_LOGE(opName_, "N2 size check failed! Expected cmp_kv's N2(%u) ==ori_kv's N2(%u).", cmpKvN2Size_, n2Size_),
                     return ge::GRAPH_FAILED);
         n2Size_ = cmpKvN2Size_;
@@ -611,7 +611,7 @@ ge::graphStatus SASInfoParser::GetS2SizeForTND()
     if (opParamInfo_.cuSeqLensKv.tensor == nullptr) {
         OP_LOGE(opName_, "the layout_kv is %s, seqlens_ori_kv must be provided.", SASLayoutToSerialString(kvLayout_).c_str());
         return ge::GRAPH_FAILED;
-    }
+    } 
     // if (opParamInfo_.sequsedKv.tensor == nullptr) {
     //     OP_LOGE(opName_, "the layout_kv is %s, sequsedKv must be provided.", SASLayoutToSerialString(kvLayout_).c_str());
     //     return ge::GRAPH_FAILED;
@@ -706,13 +706,13 @@ ge::graphStatus SASInfoParser::GetActualseqInfo()
         if (opParamInfo_.sequsedKv.tensor != nullptr) {
             if (qLayout_ == SASLayout::BSND){
                 if (opParamInfo_.sequsedKv.tensor->GetShapeSize() != bSize_) {
-                    OP_LOGE(opName_, "seqused_kv's dimension should be equal to %u, but got %ld.",
+                    OP_LOGE(opName_, "seqused_kv's dimension should be equal to %u, but got %ld.", 
                         bSize_, opParamInfo_.sequsedKv.tensor->GetShapeSize());
                     return ge::GRAPH_FAILED;
                 }
             } else {
                 if (opParamInfo_.sequsedKv.tensor->GetShapeSize() != (bSize_ - 1)) {
-                    OP_LOGE(opName_, "seqused_kv's dimension should be equal to %u (bSize - 1), but got %ld.",
+                    OP_LOGE(opName_, "seqused_kv's dimension should be equal to %u (bSize - 1), but got %ld.", 
                         (bSize_ - 1), opParamInfo_.sequsedKv.tensor->GetShapeSize());
                     return ge::GRAPH_FAILED;
                 }
@@ -732,13 +732,13 @@ ge::graphStatus SASInfoParser::GetActualseqInfo()
         if (opParamInfo_.cuSeqLensKv.tensor != nullptr) {
             if (qLayout_ == SASLayout::BSND){
                 if (opParamInfo_.cuSeqLensKv.tensor->GetShapeSize() != bSize_ + 1) {
-                    OP_LOGE(opName_, "cuSeqLensKv's dimension should be equal to %u (bSize + 1), but got %ld.",
+                    OP_LOGE(opName_, "cuSeqLensKv's dimension should be equal to %u (bSize + 1), but got %ld.", 
                         (bSize_ + 1), opParamInfo_.sequsedKv.tensor->GetShapeSize());
                     return ge::GRAPH_FAILED;
                 }
             } else {
                 if (opParamInfo_.cuSeqLensKv.tensor->GetShapeSize() != (bSize_)) {
-                    OP_LOGE(opName_, "cuSeqLensKv's dimension should be equal to %u, but got %ld.",
+                    OP_LOGE(opName_, "cuSeqLensKv's dimension should be equal to %u, but got %ld.", 
                         bSize_, opParamInfo_.sequsedKv.tensor->GetShapeSize());
                     return ge::GRAPH_FAILED;
                 }
@@ -826,7 +826,7 @@ ge::graphStatus SASInfoParser::Parse(SASTilingInfo &sasInfo)
 
     if (ge::GRAPH_SUCCESS != GetOpName() ||
         ge::GRAPH_SUCCESS != GetNpuInfo() ||
-        ge::GRAPH_SUCCESS != GetOpParaInfo() ||
+        ge::GRAPH_SUCCESS != GetOpParaInfo() || 
         ge::GRAPH_SUCCESS != GetKvLayout() ||
         ge::GRAPH_SUCCESS != CheckRequiredParaExistence() ||
         ge::GRAPH_SUCCESS != CheckUnrequiredParaExistence()) {
@@ -970,7 +970,7 @@ void SASTilingCheck::LogErrorNumberSupport(const std::vector<T> &expectNumberLis
               name.c_str(), subName.c_str(), oss.str().c_str(), std::to_string(actualValue).c_str());
 }
 
-template <typename T>
+template <typename T> 
 void SASTilingCheck::LogErrorDimNumSupport(const std::vector<T> &expectNumberList,
     const T &actualValue, const std::string &name) const
 {
@@ -1040,9 +1040,9 @@ ge::graphStatus SASTilingCheck::CheckSingleParaOriKv() const
 
 ge::graphStatus SASTilingCheck::CheckSingleParaCmpKv() const
 {
-    if (sasInfo_.perfMode == SASTemplateMode::SCFA_TEMPLATE_MODE ||
+    if (sasInfo_.perfMode == SASTemplateMode::SCFA_TEMPLATE_MODE || 
         sasInfo_.perfMode == SASTemplateMode::CFA_TEMPLATE_MODE) {
-	    const std::vector<size_t> cmpKvDimNumList = {DIM_NUM_THREE, DIM_NUM_FOUR};
+ 	    const std::vector<size_t> cmpKvDimNumList = {DIM_NUM_THREE, DIM_NUM_FOUR};
         if (
             ge::GRAPH_SUCCESS != CheckDtypeSupport(opParamInfo_.cmpKv.desc, CMP_KV_NAME) ||
             ge::GRAPH_SUCCESS != CheckLayoutSupport(kvLayout_, CMP_KV_NAME) ||
@@ -1174,7 +1174,7 @@ ge::graphStatus SASTilingCheck::CheckSingleParaMetadata() const
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF((opParamInfo_.metadata.tensor->GetShapeSize() != METADATA_LIMIT),
-	            OP_LOGE(opName_, "input metadata dim 0 must be %u.", METADATA_LIMIT),
+ 	            OP_LOGE(opName_, "input metadata dim 0 must be %u.", METADATA_LIMIT),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(opParamInfo_.metadata.desc->GetDataType() != ge::DT_INT32,
                 OP_LOGE(opName_, "metadata's dtype must be DT_INT32."),
@@ -1244,7 +1244,7 @@ ge::graphStatus SASTilingCheck::CheckSinglePara() const
         ge::GRAPH_SUCCESS != CheckSingleParaOriWinRight()) {
         return ge::GRAPH_FAILED;
     }
-
+    
     return ge::GRAPH_SUCCESS;
 }
 
@@ -1298,7 +1298,7 @@ ge::graphStatus SASTilingCheck::CheckExistenceByMap(std::map<std::string, const 
 
 ge::graphStatus SASTilingCheck::CheckParaExistence() const
 {
-    if (kvLayout_ != SASLayout::PA_ND) {
+    if (kvLayout_ != SASLayout::PA_ND) { 
         return ge::GRAPH_SUCCESS;
     }
     std::map<std::string, const void *> ParamExistMap = {
@@ -1317,7 +1317,7 @@ ge::graphStatus SASTilingCheck::CheckFeatureShape() const
     OP_CHECK_IF(bSize_ <= 0,
                 OP_LOGE(opName_, "batch_size should be greater than 0, but got %u", bSize_),
                 return ge::GRAPH_FAILED);
-
+        
     OP_CHECK_IF(qTSize_ <= 0 && (qLayout_ == SASLayout::TND),
                 OP_LOGE(opName_, "T_size of query should be greater than 0, but got %u", qTSize_),
                 return ge::GRAPH_FAILED);
@@ -1335,7 +1335,7 @@ ge::graphStatus SASTilingCheck::CheckFeatureShape() const
                 return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(gSize_ % 4 != 0,
-	            OP_LOGE(opName_, "group num should be multiple of 4, but got %u", gSize_),
+ 	            OP_LOGE(opName_, "group num should be multiple of 4, but got %u", gSize_),
                 return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(qHeadDim_ != DIM_LIMIT,
@@ -1416,7 +1416,7 @@ void SASTilingCheck::SetSASShapeCompare()
     queryShapeCmp_ = opParamInfo_.q.shape->GetStorageShape();
     oriKvShapeCmp_= opParamInfo_.oriKv.tensor->GetShape().GetStorageShape();
     attenOutShapeCmp_ = opParamInfo_.attnOut.shape->GetStorageShape();
-    if (sasInfo_.perfMode == SASTemplateMode::CFA_TEMPLATE_MODE ||
+    if (sasInfo_.perfMode == SASTemplateMode::CFA_TEMPLATE_MODE || 
         sasInfo_.perfMode == SASTemplateMode::SCFA_TEMPLATE_MODE) {
         cmpKvShapeCmp_= opParamInfo_.cmpKv.tensor->GetShape().GetStorageShape();
     }
@@ -1500,7 +1500,7 @@ ge::graphStatus SASTilingCheck::CheckMultiParaConsistency()
         ge::GRAPH_SUCCESS != CheckAttenOut() ||
         ge::GRAPH_SUCCESS != CheckActualSeqLensQ() ||
         ge::GRAPH_SUCCESS != CheckActualSeqLens() ||
-        ge::GRAPH_SUCCESS != CheckBlockTable())
+        ge::GRAPH_SUCCESS != CheckBlockTable()) 
         {
         return ge::GRAPH_FAILED;
     }
@@ -1515,7 +1515,7 @@ ge::graphStatus SASTilingCheck::Process()
         CheckParaExistence() != ge::GRAPH_SUCCESS ||
         CheckFeature() != ge::GRAPH_SUCCESS ||
         CheckMultiParaConsistency() != ge::GRAPH_SUCCESS
-        )
+        ) 
     {
         return ge::GRAPH_FAILED;
     }

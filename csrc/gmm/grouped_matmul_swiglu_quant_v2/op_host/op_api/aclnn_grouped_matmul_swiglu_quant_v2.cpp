@@ -53,7 +53,7 @@ static aclnnStatus aclnnGroupedMatmulSwigluQuantGetWorkspaceSizeCommon(const cha
         handler->Initialize(interfaceName, params, workspaceSize, executor);
         return handler->Process();
     } else {
-         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "interfaceName failed: the soc version is not support");
+         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "interfaceName failed: the soc verison is not support");
     }
 
     return ACLNN_ERR_PARAM_INVALID;
@@ -67,7 +67,7 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantV2GetWorkspaceSize(const aclTensor *x,
         const aclTensorList *weight, const aclTensorList *weightScale,
         const aclTensorList *weightAssistMatrix, const aclTensor *bias,
         const aclTensor *xScale, const aclTensor *smoothScale,
-        const aclTensor *groupList, int64_t dequantMode,
+        const aclTensor *groupList, int64_t dequantMode, 
         int64_t dequantDtype, int64_t quantMode,
         int64_t groupListType, const aclIntArray *tuningConfigOptional,  double swigluLimit,
         aclTensor *output, aclTensor *outputScale,
@@ -90,7 +90,7 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantV2GetWorkspaceSize(const aclTensor *x,
         .SetTransposeAttr(false).SetBias(bias)
         .SetLimitAttr(swigluLimit)
         .SetScenario()
-        .SetTuningConfig(tuningConfigOptional).Build();
+        .SetTuningConfig(tuningConfigOptional).Build();        
     // 调用公共接口
     return aclnnGroupedMatmulSwigluQuantGetWorkspaceSizeCommon(__FUNCTION__, params, workspaceSize, executor);
 }
@@ -99,7 +99,7 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantWeightNzV2GetWorkspaceSize(const aclTen
         const aclTensorList *weight, const aclTensorList *weightScale,
         const aclTensorList *weightAssistMatrix, const aclTensor *bias,
         const aclTensor *xScale, const aclTensor *smoothScale,
-        const aclTensor *groupList, int64_t dequantMode,
+        const aclTensor *groupList, int64_t dequantMode, 
         int64_t dequantDtype, int64_t quantMode,
         int64_t groupListType,  const aclIntArray *tuningConfigOptional, double swigluLimit,
         aclTensor *output, aclTensor *outputScale,
@@ -118,16 +118,6 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantWeightNzV2GetWorkspaceSize(const aclTen
         auto storgeShape = w->GetStorageShape();
         auto viewShape = w->GetViewShape();
         aclTensor *weightNZ = const_cast<aclTensor *>(w);
-        auto storageShape = w->GetStorageShape();
-        auto groupListViewShape = groupList->GetViewShape();
-        auto expertNum = groupListViewShape[0];
-        auto weightScale0 = (*weightScale)[0];
-        auto weightScaleStorageShape = weightScale0->GetViewShape();
-        auto n = weightScaleStorageShape[1];
-        auto xViewShape = x->GetViewShape();
-        auto k = xViewShape[1];
-        storageShape = {expertNum, n / 64, k / 16, 16, 8};
-        w->SetStorageShape(storageShape);
         CHECK_COND((storgeShape.GetDimNum() == WEIGHT_NZ_DIM_LIMIT), ACLNN_ERR_PARAM_INVALID,
                    "aclnnGroupedMatmulSwigluQuantWeightNzV2, The dimnum of storageShape for second input (weight)"
                  "must be 5. \n But StorageShape got %s , and dimNum is %lu.",
@@ -148,15 +138,6 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantWeightNzV2GetWorkspaceSize(const aclTen
             auto storgeShape = w->GetStorageShape();
             auto viewShape = w->GetViewShape();
             aclTensor *weightNZ = const_cast<aclTensor *>(w);
-            auto storageShape = w->GetStorageShape();
-            auto groupListViewShape = groupList->GetViewShape();
-            auto weightScale0 = (*weightScale)[i];
-            auto weightScaleStorageShape = weightScale0->GetViewShape();
-            auto n = weightScaleStorageShape[0];
-            auto xViewShape = x->GetViewShape();
-            auto k = xViewShape[1];
-            storageShape = {n / 64, k / 16, 16, 8};
-            w->SetStorageShape(storageShape);
             CHECK_COND((storgeShape.GetDimNum() == MULTI_WEIGHT_NZ_DIM_LIMIT), ACLNN_ERR_PARAM_INVALID,
                        "aclnnGroupedMatmulSwigluQuantWeightNzV2, The dimnum of storageShape for second input (weight)"
                      "must be 4. \n But StorageShape got %s , and dimNum is %lu.",
@@ -180,7 +161,7 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantWeightNzV2GetWorkspaceSize(const aclTen
         .SetDequantAttr(dequantMode, dequantDtype)
         .SetLimitAttr(swigluLimit)
         .SetScenario()
-        .SetTuningConfig(tuningConfigOptional).Build();
+        .SetTuningConfig(tuningConfigOptional).Build();        
     // 调用公共接口
     return aclnnGroupedMatmulSwigluQuantGetWorkspaceSizeCommon(__FUNCTION__, params, workspaceSize, executor);
 }

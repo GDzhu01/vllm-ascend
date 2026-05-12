@@ -388,7 +388,7 @@ __aicore__ inline void SWAVectorBlock<SAST>::ProcessLse(const RunInfo &info, con
     dataCopyParams.blockLen = mSplitInfo.vecDealM * sizeof(T);
     dataCopyParams.srcStride = 0;
     dataCopyParams.dstStride = 0;
-
+    
     WaitFlag<AscendC::HardEvent::MTE3_V>(SYNC_OUTPUT_BUF2_FLAG);
     PipeBarrier<PIPE_V>();
     Log(outLSETensor, sumTensor, mSplitInfo.vecDealM);
@@ -396,7 +396,7 @@ __aicore__ inline void SWAVectorBlock<SAST>::ProcessLse(const RunInfo &info, con
     Add(outLSETensor, outLSETensor, maxTensor, mSplitInfo.vecDealM);
     SetFlag<AscendC::HardEvent::V_MTE3>(SYNC_OUTPUT_BUF2_FLAG);
     WaitFlag<AscendC::HardEvent::V_MTE3>(SYNC_OUTPUT_BUF2_FLAG);
-
+    
     DataCopyPad(softmaxLseGm[lseOffset], outLSETensor, dataCopyParams);
     SetFlag<AscendC::HardEvent::MTE3_V>(SYNC_OUTPUT_BUF2_FLAG);
 }

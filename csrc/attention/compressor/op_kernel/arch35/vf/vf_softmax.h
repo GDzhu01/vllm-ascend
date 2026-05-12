@@ -219,7 +219,7 @@ __simd_vf__ inline void SoftmaxDndBase128(__ubuf__ T *inputAddr, __ubuf__ float 
             LoadAlign(vregF32_31, srcUb31 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
             LoadAlign(vregF32_32, srcUb32 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
             LoadAlign(vregF32_33, srcUb33 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
-
+            
             FusedExpSub(vregExp00, vregF32_00, max00, pregAll);
             FusedExpSub(vregExp01, vregF32_01, max01, pregAll);
             FusedExpSub(vregExp02, vregF32_02, max00, pregAll);
@@ -236,7 +236,7 @@ __simd_vf__ inline void SoftmaxDndBase128(__ubuf__ T *inputAddr, __ubuf__ float 
             FusedExpSub(vregExp31, vregF32_31, max31, pregAll);
             FusedExpSub(vregExp32, vregF32_32, max30, pregAll);
             FusedExpSub(vregExp33, vregF32_33, max31, pregAll);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregAll);
             Add(vregSum01, vregExp01, vregSum01, pregAll);
             Add(vregSum02, vregExp02, vregSum02, pregAll);
@@ -314,7 +314,7 @@ __simd_vf__ inline void SoftmaxDndBase128(__ubuf__ T *inputAddr, __ubuf__ float 
             Div(vregStore20, vregExp20, vregSum20, pregAll);
             Div(vregStore21, vregExp21, vregSum21, pregAll);
             Div(vregStore30, vregExp30, vregSum30, pregAll);
-            Div(vregStore31, vregExp31, vregSum31, pregAll);
+            Div(vregStore31, vregExp31, vregSum31, pregAll); 
 
             StoreAlign<T, MicroAPI::StoreDist::DIST_NORM>(((__ubuf__ T *&)inputAddr00 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4),
                 vregStore00, pregAll);
@@ -364,12 +364,12 @@ __simd_vf__ inline void SoftmaxDndBase128(__ubuf__ T *inputAddr, __ubuf__ float 
             LoadAlign(vregF32_01, srcUb01 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
             LoadAlign(vregF32_02, srcUb02 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
             LoadAlign(vregF32_03, srcUb03 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
-
+            
             FusedExpSub(vregExp00, vregF32_00, max00, pregAll);
             FusedExpSub(vregExp01, vregF32_01, max01, pregAll);
             FusedExpSub(vregExp02, vregF32_02, max00, pregAll);
             FusedExpSub(vregExp03, vregF32_03, max01, pregAll);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregAll);
             Add(vregSum01, vregExp01, vregSum01, pregAll);
             Add(vregSum02, vregExp02, vregSum02, pregAll);
@@ -515,7 +515,7 @@ __simd_vf__ inline void SoftmaxDndBase64(__ubuf__ T *inputAddr, __ubuf__ float *
 
             LoadAlign(vregF32_30, srcUb30 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
             LoadAlign(vregF32_31, srcUb31 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
-
+            
             FusedExpSub(vregExp00, vregF32_00, max00, pregAll);
             FusedExpSub(vregExp01, vregF32_01, max00, pregAll);
             FusedExpSub(vregExp10, vregF32_10, max10, pregAll);
@@ -524,7 +524,7 @@ __simd_vf__ inline void SoftmaxDndBase64(__ubuf__ T *inputAddr, __ubuf__ float *
             FusedExpSub(vregExp21, vregF32_21, max20, pregAll);
             FusedExpSub(vregExp30, vregF32_30, max30, pregAll);
             FusedExpSub(vregExp31, vregF32_31, max30, pregAll);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregAll);
             Add(vregSum01, vregExp01, vregSum01, pregAll);
             Add(vregSum10, vregExp10, vregSum10, pregAll);
@@ -566,7 +566,7 @@ __simd_vf__ inline void SoftmaxDndBase64(__ubuf__ T *inputAddr, __ubuf__ float *
             Div(vregStore0, vregExp00, vregSum00, pregAll);
             Div(vregStore1, vregExp10, vregSum10, pregAll);
             Div(vregStore2, vregExp20, vregSum20, pregAll);
-            Div(vregStore3, vregExp30, vregSum30, pregAll);
+            Div(vregStore3, vregExp30, vregSum30, pregAll); 
 
             StoreAlign<T, MicroAPI::StoreDist::DIST_NORM>(((__ubuf__ T *&)inputAddr0 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4),
                 vregStore0, pregAll);
@@ -597,10 +597,10 @@ __simd_vf__ inline void SoftmaxDndBase64(__ubuf__ T *inputAddr, __ubuf__ float *
         for (uint16_t loopM = 0; loopM < ReduceSize / 2; ++loopM) {
             LoadAlign(vregF32_00, srcUb00 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
             LoadAlign(vregF32_01, srcUb01 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
-
+            
             FusedExpSub(vregExp00, vregF32_00, max00, pregAll);
             FusedExpSub(vregExp01, vregF32_01, max00, pregAll);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregAll);
             Add(vregSum01, vregExp01, vregSum01, pregAll);
 
@@ -760,7 +760,7 @@ __simd_vf__ inline void SoftmaxDndBase32(__ubuf__ T *inputAddr, __ubuf__ float *
 
             LoadAlign(vregF32_30, srcUb30 + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
             LoadAlign(vregF32_31, (srcUb30 + RowSize) + loopM * RowSize * 2 + ReduceSize * RowSize * loopSc * 4);
-
+            
             FusedExpSub(vregExp00, vregF32_00, max0, pregLHalf);
             FusedExpSub(vregExp01, vregF32_01, max0, pregLHalf);
             FusedExpSub(vregExp10, vregF32_10, max1, pregLHalf);
@@ -769,7 +769,7 @@ __simd_vf__ inline void SoftmaxDndBase32(__ubuf__ T *inputAddr, __ubuf__ float *
             FusedExpSub(vregExp21, vregF32_21, max2, pregLHalf);
             FusedExpSub(vregExp30, vregF32_30, max3, pregLHalf);
             FusedExpSub(vregExp31, vregF32_31, max3, pregLHalf);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregLHalf);
             Add(vregSum01, vregExp01, vregSum01, pregLHalf);
             Add(vregSum10, vregExp10, vregSum10, pregLHalf);
@@ -811,7 +811,7 @@ __simd_vf__ inline void SoftmaxDndBase32(__ubuf__ T *inputAddr, __ubuf__ float *
             Div(vregStore0, vregExp00, vregSum00, pregLHalf);
             Div(vregStore1, vregExp10, vregSum10, pregLHalf);
             Div(vregStore2, vregExp20, vregSum20, pregLHalf);
-            Div(vregStore3, vregExp30, vregSum30, pregLHalf);
+            Div(vregStore3, vregExp30, vregSum30, pregLHalf); 
 
             StoreAlign<T, MicroAPI::StoreDist::DIST_NORM>(((__ubuf__ T *&)inputAddr0 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4),
                 vregStore0, pregLHalf);
@@ -847,10 +847,10 @@ __simd_vf__ inline void SoftmaxDndBase32(__ubuf__ T *inputAddr, __ubuf__ float *
         for (uint16_t loopM = 0; loopM < uint16_t(ReduceSize / 2); ++loopM) {
             LoadAlign(vregF32_00, srcUb00 + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
             LoadAlign(vregF32_01, (srcUb00 + RowSize) + loopM * RowSize * 2 + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
-
+            
             FusedExpSub(vregExp00, vregF32_00, max0, pregLHalf);
             FusedExpSub(vregExp01, vregF32_01, max0, pregLHalf);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregLHalf);
             Add(vregSum01, vregExp01, vregSum01, pregLHalf);
 
@@ -1152,7 +1152,7 @@ __simd_vf__ inline void SoftmaxDndBase16(__ubuf__ T *inputAddr, __ubuf__ float *
 
             LoadAlign(vregF32_30, srcUb30 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4);
             LoadAlign(vregF32_31, srcUb31 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4);
-
+            
             FusedExpSub(vregExp00, vregF32_00, max0, pregLHalf);
             FusedExpSub(vregExp01, vregF32_01, max0, pregLHalf);
             FusedExpSub(vregExp10, vregF32_10, max1, pregLHalf);
@@ -1161,7 +1161,7 @@ __simd_vf__ inline void SoftmaxDndBase16(__ubuf__ T *inputAddr, __ubuf__ float *
             FusedExpSub(vregExp21, vregF32_21, max2, pregLHalf);
             FusedExpSub(vregExp30, vregF32_30, max3, pregLHalf);
             FusedExpSub(vregExp31, vregF32_31, max3, pregLHalf);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregLHalf);
             Add(vregSum01, vregExp01, vregSum01, pregLHalf);
             Add(vregSum10, vregExp10, vregSum10, pregLHalf);
@@ -1203,7 +1203,7 @@ __simd_vf__ inline void SoftmaxDndBase16(__ubuf__ T *inputAddr, __ubuf__ float *
             Div(vregStore0, vregExp00, vregSum00, pregLHalf);
             Div(vregStore1, vregExp10, vregSum10, pregLHalf);
             Div(vregStore2, vregExp20, vregSum20, pregLHalf);
-            Div(vregStore3, vregExp30, vregSum30, pregLHalf);
+            Div(vregStore3, vregExp30, vregSum30, pregLHalf); 
 
             StoreAlign<T, MicroAPI::StoreDist::DIST_NORM>(((__ubuf__ T *&)inputAddr0 + loopM * RowSize + ReduceSize * RowSize * loopSc * 4),
                 vregStore0, pregLHalf);
@@ -1239,10 +1239,10 @@ __simd_vf__ inline void SoftmaxDndBase16(__ubuf__ T *inputAddr, __ubuf__ float *
         for (uint16_t loopM = 0; loopM < uint16_t(ReduceSize / 2); ++loopM) {
             LoadAlign(vregF32_00, srcUb00 + loopM * RowSize + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
             LoadAlign(vregF32_01, srcUb01 + loopM * RowSize + ReduceSize * RowSize * (loopSc + vScRealSize / 4 * 4));
-
+            
             FusedExpSub(vregExp00, vregF32_00, max0, pregLHalf);
             FusedExpSub(vregExp01, vregF32_01, max0, pregLHalf);
-
+            
             Add(vregSum00, vregExp00, vregSum00, pregLHalf);
             Add(vregSum01, vregExp01, vregSum01, pregLHalf);
 
@@ -1572,8 +1572,8 @@ __simd_vf__ inline void SoftmaxDndBase512(__ubuf__ T *inputAddr, __ubuf__ float 
  * @param [out] dstTensor, output LocalTensor
  * @param [in] srcTensor, input LocalTensor
  * @param [in] RowSize, input rows
- * @param [in] vScBaseSize, input columns, should be 256 bytes aligned, the value is originN aligned to 64
- * @param [in] vScRealSize, input origin columns, support range: 0 < originN <= 128
+ * @param [in] vScBaseSize, input colums, should be 256 bytes aligned, the value is originN aligned to 64
+ * @param [in] vScRealSize, input origin colums, support range: 0 < originN <= 128
  * @param [in] scale, scale value
  * @param [in] minValue, minimum value
  */
@@ -1596,7 +1596,7 @@ __aicore__ inline void SoftmaxDnVF(const LocalTensor<T>& dstTensor, const LocalT
             ReduceSize, vScRealSize, minValue);
     } else if (dDealSize == 64) {
         SoftmaxDndBase64<T>(inputAddr, outputAddr, RowSize,
-            ReduceSize, vScRealSize, minValue);
+            ReduceSize, vScRealSize, minValue);        
     } else if (dDealSize == 128) {
         SoftmaxDndBase128<T>(inputAddr, outputAddr, RowSize,
             ReduceSize, vScRealSize, minValue);

@@ -143,7 +143,7 @@ protected:
     __aicore__ inline uint32_t GetActualSeqLen(uint32_t bIdx, uint32_t actualLenDims, bool isAccumSeq,
                                                GlobalTensor<uint32_t> &actualSeqLengthsGm, uint32_t defaultSeqLen);
     __aicore__ inline uint32_t GetActualSeqLenKey(uint32_t bIdx, uint32_t actualLenDims, bool isAccumSeq,
-                                            GlobalTensor<uint32_t> &actualSeqLengthsGm, uint32_t defaultSeqLen, uint32_t cmpRatio);
+                                            GlobalTensor<uint32_t> &actualSeqLengthsGm, uint32_t defaultSeqLen, uint32_t cmpRatio);                                              
     __aicore__ inline void GetS1S2ActualSeqLen(uint32_t bIdx, uint32_t &actS1Size, uint32_t &actS2Size, uint32_t &actS2SizeOrig);
     __aicore__ inline void CalcS2LoopParams(uint32_t bN2LoopIdx, uint32_t gS1LoopIdx);
     __aicore__ inline void CalcRunInfo(uint32_t loop, uint32_t s2LoopIdx, QLICommon::RunInfo &runInfo);
@@ -245,7 +245,7 @@ __aicore__ inline void QLIPreload<QLIT>::GetS1S2ActualSeqLen(uint32_t bIdx, uint
                                 constInfo.qSeqSize);
     actS2SizeOrig =
         GetActualSeqLenKey(bIdx, constInfo.actualLenDims, constInfo.isAccumSeqS2, actualSeqLengthsGm, constInfo.kSeqSize, constInfo.cmpRatio); // 压缩前的actS2Size
-    actS2Size = actS2SizeOrig / constInfo.cmpRatio;   // 真实使用的压缩后S2长度
+    actS2Size = actS2SizeOrig / constInfo.cmpRatio;   // 真实使用的压缩后S2长度    
 }
 
 template <typename QLIT>
@@ -257,7 +257,7 @@ __aicore__ inline uint32_t QLIPreload<QLIT>::GetS2BaseBlockNumOnMask(uint32_t s1
     }
     uint32_t s1Offset = constInfo.s1BaseSize * s1gIdx;
     int32_t validS2LenBase = static_cast<int32_t>(actS2SizeOrig) - static_cast<int32_t>(actS1Size);    // 压缩前的validS2LenBase
-    int32_t validS2Len = (static_cast<int32_t>(s1Offset) + validS2LenBase + static_cast<int32_t>(constInfo.s1BaseSize)) / static_cast<int32_t>(constInfo.cmpRatio);
+    int32_t validS2Len = (static_cast<int32_t>(s1Offset) + validS2LenBase + static_cast<int32_t>(constInfo.s1BaseSize)) / static_cast<int32_t>(constInfo.cmpRatio);  
     validS2Len = Min(validS2Len, static_cast<int32_t>(actS2SizeOrig) / constInfo.cmpRatio);
     validS2Len = Max(validS2Len, 1);
     return (validS2Len + constInfo.s2BaseSize - 1) / constInfo.s2BaseSize;
@@ -266,7 +266,7 @@ __aicore__ inline uint32_t QLIPreload<QLIT>::GetS2BaseBlockNumOnMask(uint32_t s1
 template <typename QLIT>
 __aicore__ inline void QLIPreload<QLIT>::SplitCoreByAICPU(uint32_t curCoreIdx,  GlobalTensor<uint32_t> &metadataGm)
 {
-    uint32_t liCoreEnableIndex = GetAttrAbsIndex(curCoreIdx, LI_CORE_ENABLE_INDEX);
+    uint32_t liCoreEnableIndex = GetAttrAbsIndex(curCoreIdx, LI_CORE_ENABLE_INDEX);    
     uint32_t bN2StartIndex = GetAttrAbsIndex(curCoreIdx, LI_BN2_START_INDEX);
     uint32_t mStartIndex = GetAttrAbsIndex(curCoreIdx, LI_M_START_INDEX);
     uint32_t s2StartIndex = GetAttrAbsIndex(curCoreIdx, LI_S2_START_INDEX);
@@ -276,7 +276,7 @@ __aicore__ inline void QLIPreload<QLIT>::SplitCoreByAICPU(uint32_t curCoreIdx,  
 
     uint32_t liZeroCoreEnableIndex = GetAttrAbsIndex(0, LI_CORE_ENABLE_INDEX);
     if (metadataGm.GetValue(liZeroCoreEnableIndex) == 0) {
-        isUsedCoreEqZero = true;
+        isUsedCoreEqZero = true; 
     }
     if (metadataGm.GetValue(liCoreEnableIndex) == 0) {
         splitCoreInfo.isCoreEnable = false;
@@ -312,7 +312,7 @@ __aicore__ inline void QLIPreload<QLIT>::SplitCoreByAICPU(uint32_t curCoreIdx,  
                 s2BaseNum = CeilDiv(actS2Size, constInfo.s2BaseSize);
             }
             splitCoreInfo.s2End = s2BaseNum - 1;
-        } else {
+        } else { 
             // splitCoreInfo.gS1End == 0 splitCoreInfo.s2End == 0 时，bN2End需要往前退一格
             // 此时需要使用bIdx获取实际Actal S1和S2来计算出 gS1End 和 s2End
             splitCoreInfo.bN2End = splitCoreInfo.bN2End - 1;
@@ -614,8 +614,8 @@ __aicore__ inline void QLIPreload<QLIT>::ProcessMain()
         vectorService.FreeEventID();
     } else {
         matmulService.FreeEventID();
-        CrossCoreWaitFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_VC_EVENT + 0);
-        CrossCoreWaitFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_VC_EVENT + 1);
+        CrossCoreWaitFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_VC_EVENT + 0); 
+        CrossCoreWaitFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_VC_EVENT + 1); 
     }
 }
 
@@ -628,7 +628,7 @@ __aicore__ inline void QLIPreload<QLIT>::ProcessBaseBlock(uint32_t loop, uint64_
     } else {
         vectorService.ProcessVec1(runInfo);
         if (runInfo.isLastS2InnerLoop) {   //本核s2last
-            vectorService.ProcessTopK(runInfo);
+            vectorService.ProcessTopK(runInfo);   
         }
     }
 }

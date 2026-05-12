@@ -202,7 +202,7 @@ ge::graphStatus GroupedMatmulSwigluQuantV2BaseTiling::ParseInputAndAttr()
         isNz_ = true;
     }
     const auto tuningConfigPtr = attr->GetAttrPointer<gert::ContinuousVector>(ATTR_INDEX_TUNING_CONFIG);
-    tuningConfig_ = tuningConfigPtr != nullptr && tuningConfigPtr->GetSize() > 1?
+    tuningConfig_ = tuningConfigPtr != nullptr && tuningConfigPtr->GetSize() > 1? 
                     (reinterpret_cast<const int64_t*>(tuningConfigPtr->GetData()))[0] : 0;
 
     if (isA4W4_) {
@@ -308,7 +308,7 @@ ge::graphStatus GroupedMatmulSwigluQuantV2BaseTiling::DynamicTilingSingleN(gert:
     uint64_t l1Size = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::L1, l1Size);
     tilingData_.gmmSwigluQuantV2BaseParams.set_singleN(0);
-
+  
     if (n_ < baseN || tuningConfig_ <= 0 || !isA4W4_) {
         return ge::GRAPH_SUCCESS;
     }
@@ -366,7 +366,7 @@ ge::graphStatus GroupedMatmulSwigluQuantV2BaseTiling::DoOpTiling()
         tilingData_.mmTilingData.set_depthB1(NUM_EIGHT);
         tilingData_.mmTilingData.set_stepM(1);
         tilingData_.mmTilingData.set_stepN(1);
-
+        
     }
 
     usrWorkspaceLimit_ = USER_WORKSPACE_LIMIT;

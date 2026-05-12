@@ -22,9 +22,9 @@ const uint32_t CMP_MAX_AIC_CORE_NUM = 26; // 25 + 1 保证数组8字节对齐
 
 namespace optiling {
     // 1. 基础参数结构体
-    struct CompressorBaseParams {
+    struct CompressorBaseParams {   
         uint32_t batchSize = 0;             // bastch size（批大小）
-        uint32_t seqSize = 0;               // sequence size（kvs大小）
+        uint32_t seqSize = 0;               // sequence size（kvs大小）  
         uint32_t hiddenSize = 0;            // hidden size（隐藏层大小）
         uint32_t tokenSize = 0;             // token size = batchSize * seqSize(token总数：批大小x序列1长度)
         uint32_t headDim = 0;               // head size of kv

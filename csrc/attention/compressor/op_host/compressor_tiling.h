@@ -247,7 +247,7 @@ struct CompressorContext {
     const char *opName;
     const char *opType;
     fe::PlatFormInfos *platformInfo;
-
+    
     RequiredParaInfo x;
     RequiredParaInfo wkv;
     RequiredParaInfo wgate;
@@ -271,8 +271,8 @@ struct CompressorContext {
     const int *stride;
     TemplateId templateId;
 
-    ge::DataType dtype = ge::DT_BF16;
-    LayoutType layout = LayoutType::LAYOUT_BSH;
+    ge::DataType dtype = ge::DT_BF16; 
+    LayoutType layout = LayoutType::LAYOUT_BSH; 
 
     size_t *workSpaces;
     uint64_t tilingKey;

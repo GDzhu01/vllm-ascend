@@ -17,7 +17,7 @@
 // #if (__CCE_AICORE__ == 220)
 #include "compressor_kernel_perf.h"
 // #endif
-
+ 
 using namespace Compressor;
 
 #define INVOKE_COMPRESSOR_GENERAL_OP_IMPL(templateClass, ...)                                                          \

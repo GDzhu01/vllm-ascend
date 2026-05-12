@@ -195,12 +195,12 @@ __aicore__ inline void QLIMatmul<QLIT>::ComputeMm1(const QLICommon::RunInfo &run
 
                     SetFlag<HardEvent::MTE1_M>(MTE1_M_EVENT);
                     WaitFlag<HardEvent::MTE1_M>(MTE1_M_EVENT);
-
+                    
                     WaitFlag<HardEvent::FIX_M>(FIX_M_EVENT + l0BufIdx_ % L0_BUF_NUM);
                     ComuteL0c(s1gL0RealSize, s2L0RealSize, runInfo);
 
                     SetFlag<HardEvent::M_MTE1>(M_MTE1_EVENT + l0BufIdx_ % L0_BUF_NUM);
-
+                    
                     Fixp(s1gGmOffset + s1gL1Offset, s2GmOffset + s2L1Offset, s1gL0RealSize, s2L0RealSize, runInfo);
                     SetFlag<HardEvent::FIX_M>(FIX_M_EVENT + l0BufIdx_ % L0_BUF_NUM);
                     l0BufIdx_++;
@@ -213,8 +213,8 @@ __aicore__ inline void QLIMatmul<QLIT>::ComputeMm1(const QLICommon::RunInfo &run
         SetFlag<HardEvent::MTE1_MTE2>(KEY_MTE1_MTE2_EVENT + keyL1BufIdx_ % KEY_BUF_NUM);
         keyL1BufIdx_++;
     }
-    CrossCoreSetFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_CV_EVENT + runInfo.loop % 2);
-    CrossCoreSetFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_CV_EVENT + runInfo.loop % 2 + QLICommon::ConstInfo::AIV0_AIV1_OFFSET);
+    CrossCoreSetFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_CV_EVENT + runInfo.loop % 2); 
+    CrossCoreSetFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_FIX>(QLICommon::ConstInfo::CROSS_CV_EVENT + runInfo.loop % 2 + QLICommon::ConstInfo::AIV0_AIV1_OFFSET); 
 }
 
 template <typename QLIT>
@@ -298,7 +298,7 @@ __aicore__ inline void QLIMatmul<QLIT>::LoadQueryToL0a(uint64_t s1gGmOffset, uin
     loadData2DParamsV2.srcStride = CeilDiv(s1gL1RealSize, BLOCK_CUBE);
     loadData2DParamsV2.dstStride = CeilDiv(s1gL0RealSize, BLOCK_CUBE);
     loadData2DParamsV2.ifTranspose = false;
-
+    
     LoadData(queryL0_[(l0BufIdx_ % L0_BUF_NUM) * L0AB_BUFFER_OFFSET],
              queryL1_[(queryL1Mte1BufIdx_ % QUERY_BUF_NUM) * QUERY_BUFFER_OFFSET], loadData2DParamsV2);
 }
@@ -315,7 +315,7 @@ __aicore__ inline void QLIMatmul<QLIT>::LoadKeyToL0b(uint64_t s2L1Offset, uint64
     loadData2DParamsV2.srcStride = CeilDiv(s2L1RealSize, BLOCK_CUBE);
     loadData2DParamsV2.dstStride = CeilDiv(s2L0RealSize, BLOCK_CUBE);
     loadData2DParamsV2.ifTranspose = false;
-
+    
     LoadData(keyL0_[(l0BufIdx_ % L0_BUF_NUM) * L0AB_BUFFER_OFFSET],
              keyL1_[(keyL1BufIdx_ % KEY_BUF_NUM) * KEY_BUFFER_OFFSET], loadData2DParamsV2);
 }
@@ -412,7 +412,7 @@ __aicore__ inline void QLIMatmul<QLIT>::AllocEventID()
 
     SetFlag<HardEvent::M_MTE1>(M_MTE1_EVENT + 0);
     SetFlag<HardEvent::M_MTE1>(M_MTE1_EVENT + 1);
-
+    
     SetFlag<HardEvent::FIX_M>(FIX_M_EVENT + 0);
     SetFlag<HardEvent::FIX_M>(FIX_M_EVENT + 1);
 }
@@ -430,7 +430,7 @@ __aicore__ inline void QLIMatmul<QLIT>::FreeEventID()
 
     WaitFlag<HardEvent::M_MTE1>(M_MTE1_EVENT + 0);
     WaitFlag<HardEvent::M_MTE1>(M_MTE1_EVENT + 1);
-
+    
     WaitFlag<HardEvent::FIX_M>(FIX_M_EVENT + 0);
     WaitFlag<HardEvent::FIX_M>(FIX_M_EVENT + 1);
 }

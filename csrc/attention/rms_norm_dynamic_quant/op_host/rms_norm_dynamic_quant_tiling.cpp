@@ -162,12 +162,12 @@ bool RmsNormDynamicQuantTilingHelper::DoTiling()
     OPS_CHECK(
         (nullptr == context_), OPS_LOG_E("AddRmsNormDynamicQuantTiling", "Helper context_ get nullptr, return failed."),
         return false);
-    OPS_CHECK(!GetBaseInfo(), OPS_LOG_E(context_->GetNodeName(), "GetBaseInfo failed, return false"), return false);
+    OPS_CHECK(!GetBaseInfo(), OPS_LOG_E(context_->GetNodeName(), "GetBaseInfo falied, return false"), return false);
     OPS_CHECK(
-        !GetShapeInfo(), OPS_LOG_E(context_->GetNodeName(), "GetShapeInfo failed, return false"), return false);
+        !GetShapeInfo(), OPS_LOG_E(context_->GetNodeName(), "GetShapeInfo falied, return false"), return false);
     OPS_CHECK(
-        !DoBlockTiling(), OPS_LOG_E(context_->GetNodeName(), "DoBlockTiling failed, return false"), return false);
-    OPS_CHECK(!DoUbTiling(), OPS_LOG_E(context_->GetNodeName(), "DoUbTiling failed, return false"), return false);
+        !DoBlockTiling(), OPS_LOG_E(context_->GetNodeName(), "DoBlockTiling falied, return false"), return false);
+    OPS_CHECK(!DoUbTiling(), OPS_LOG_E(context_->GetNodeName(), "DoUbTiling falied, return false"), return false);
     return true;
 }
 
@@ -519,7 +519,7 @@ bool RmsNormDynamicQuantTilingHelper::CheckInputOutputShape()
         (hasZeroDimTensor),
         OPS_LOG_E(
             this->context_->GetNodeName(),
-            "Input x/y1/scale1DimNum shape invalid, dim num should not be smaller or equal to zero."),
+            "Input x/y1/scale1DimNum shape invaild, dim num should not be smaller or equal to zero."),
         return false);
     OPS_CHECK(
         ((gammaDimNum != 1)), OPS_LOG_E(this->context_->GetNodeName(), "gamma shape dims not equal to 1. Tiling failed."),

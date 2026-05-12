@@ -407,7 +407,7 @@ __aicore__ inline void SASCubeBlock<SAST>::ComputeMm1(const RunInfo &info, const
                     nd2nzPara.dstNzNStride = 1;
                     nd2nzPara.srcNdMatrixStride = 0;
                     nd2nzPara.dstNzMatrixStride = 0;
-
+                    
                     uint32_t headStride  = constInfo.headDim;
                     uint32_t seqStride   = constInfo.kvHeadNum * constInfo.headDim;
                     uint32_t batchStride = constInfo.kvSeqSize * seqStride;
@@ -439,9 +439,9 @@ __aicore__ inline void SASCubeBlock<SAST>::ComputeMm1(const RunInfo &info, const
                         nd2nzPara.dstNzNStride = 1;
                         nd2nzPara.srcNdMatrixStride = 0;
                         nd2nzPara.dstNzMatrixStride = 0;
-                        DataCopy(bL1Tensor,
+                        DataCopy(bL1Tensor, 
                                     oriKvGm[info.tensorBOffset + curS2Offset * constInfo.headDim + (constInfo.headDim >> 1) +
-                                        nL1 * N_SPLIT_SIZE * constInfo.headDim],
+                                        nL1 * N_SPLIT_SIZE * constInfo.headDim], 
                                     nd2nzPara);
                     }
                 }
@@ -651,7 +651,7 @@ __aicore__ inline void SASCubeBlock<SAST>::ComputeMm2(const RunInfo &info, const
                             shape.copyRowNum = copyRowCnt;
                             shape.copyRowNumAlign = kL0SizeAlign;
                             subvTensor = bL1Tensor[(kL1 - kOffset) * 128 * N_SPLIT_SIZE + copyFinishRowCnt * 16];
-
+                            
                             DataCopyPA<KV_T>(subvTensor, oriKvGm, oriBlockTableGm, shape, startPos);
 
                             // 更新循环变量
@@ -668,7 +668,7 @@ __aicore__ inline void SASCubeBlock<SAST>::ComputeMm2(const RunInfo &info, const
                         nd2nzPara.dstNzNStride = 1;
                         nd2nzPara.srcNdMatrixStride = 0;
                         nd2nzPara.dstNzMatrixStride = 0;
-
+                     
                         uint32_t headStride  = constInfo.headDim;
                         uint32_t seqStride   = constInfo.kvHeadNum * constInfo.headDim;
                         uint32_t batchStride = constInfo.kvSeqSize * seqStride;

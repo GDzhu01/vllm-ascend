@@ -35,6 +35,7 @@ namespace {
     constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 1;
     constexpr uint32_t ATTR_IS_TRANS_B = 2;
     constexpr uint32_t ATTR_WEIGHT_NZ = 3;
+    constexpr uint32_t ATTR_SWIGLU_LIMIT = 4;
     constexpr uint64_t INIT_TILINGKEY = 1000000;
     constexpr uint64_t TILINGKEY_TRANS_B = 1U;
     constexpr uint64_t TILINGKEY_WEIGHT_NZ = 10;
@@ -42,7 +43,6 @@ namespace {
     constexpr uint32_t WEIGHT_INDEX = 1;
     constexpr uint32_t WEIGHT2_INDEX = 2;
     constexpr uint32_t EXPERTID_INDEX = 3;
-    constexpr uint32_t X_ACTIVE_MASK_INDEX = 7;
     constexpr uint32_t BLOCK_NUM = 20;
     constexpr uint32_t SYSTEM_NEED_WORKSPACE = 16 * 1024 * 1024;
     constexpr uint64_t MB_SIZE = 1024 * 1024UL;
@@ -93,6 +93,7 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     auto maxOutputSizePtr = attrs->GetAttrPointer<int>(ATTR_MAX_OUTPUT_SIZE_INDEX);
     auto is_trans_b = attrs->GetAttrPointer<bool>(ATTR_IS_TRANS_B);
     auto weight_nz = attrs->GetAttrPointer<bool>(ATTR_WEIGHT_NZ);
+    auto swiglu_limit = attrs->GetAttrPointer<float>(ATTR_SWIGLU_LIMIT);
     OP_TILING_CHECK(groupPtr == nullptr || strlen(groupPtr) == 0,
     OP_LOGE(K_INNER_DEBUG, "group is invalid."), return GRAPH_FAILED);
 
@@ -104,6 +105,7 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     info.maxOutputSize = *maxOutputSizePtr;
     info.isTransposeB = *is_trans_b;
     info.isWeightNz = *weight_nz;
+    info.swigluLimit = swiglu_limit != nullptr ? *swiglu_limit : 0.0f;
 
     int64_t rankSize;
     (void)ge::HcomTopoInfo::Instance().GetGroupRankSize(groupPtr, rankSize);
@@ -111,6 +113,7 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
 
     OP_LOGD(K_INNER_DEBUG, "maxOutputSize=%d ", info.maxOutputSize);
     OP_LOGD(K_INNER_DEBUG, "rankSize=%d ", info.worldSize);
+    OP_LOGD(K_INNER_DEBUG, "swigluLimit=%f ", info.swigluLimit);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -175,21 +178,6 @@ static ge::graphStatus DispatchFFNCombineGetPlatformInfoAndSetTiling(gert::Tilin
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus CheckXActiveMaskShape(gert::TilingContext *context, const char *nodeName, DispatchFFNCombineInfo &info)
-{
-    const gert::StorageShape* xActiveMaskStorageShape = context->GetOptionalInputShape(X_ACTIVE_MASK_INDEX);
-    if (xActiveMaskStorageShape != nullptr) {
-        OP_TILING_CHECK(xActiveMaskStorageShape->GetStorageShape().GetDimNum() != 1,
-            OP_LOGE(nodeName, "xActiveMask shape dims must be 1, but current dim num is %lu.",
-                xActiveMaskStorageShape->GetStorageShape().GetDimNum()), return ge::GRAPH_FAILED);
-        const int64_t xActiveMaskDim0 = xActiveMaskStorageShape->GetStorageShape().GetDim(0);
-        OP_TILING_CHECK(xActiveMaskDim0 != static_cast<int64_t>(info.M),
-            OP_LOGE(nodeName, "xActiveMask Dim0 must be M(%u), but current dim is %lu.", info.M, xActiveMaskDim0),
-            return ge::GRAPH_FAILED);
-    }
-    return ge::GRAPH_SUCCESS;
-}
-
 void SetTilingData(CoCTiling &cocTilingData, DispatchFFNCombineInfo &info)
 {
     cocTilingData.m0 = 128;
@@ -230,9 +218,6 @@ static ge::graphStatus DispatchFFNCombineTilingFuncImpl(gert::TilingContext *con
     OP_TILING_CHECK(DispatchFFNCombineGetPlatformInfoAndSetTiling(context, info) != ge::GRAPH_SUCCESS,
         OP_LOGE(context->GetNodeName(), "DispatchFFNCombine GetPlatformInfoAndSetTiling Failed"),
         return ge::GRAPH_FAILED);
-    OP_TILING_CHECK(CheckXActiveMaskShape(context, nodeName, info) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context->GetNodeName(), "DispatchFFNCombine CheckXActiveMaskShape Failed"),
-        return ge::GRAPH_FAILED);
 
     SetTilingData(tilingData->cocTiling, info);
 
@@ -257,7 +242,7 @@ static ge::graphStatus DispatchFFNCombineTilingFuncImpl(gert::TilingContext *con
     int64_t scaleDim0 = 0;
     int64_t ubSize = 196352;
     int64_t expertCapacity = 0;
-    int64_t expertNum = info.expertPerRank * info.worldSize + 1;    // enable expertId == expertNum
+    int64_t expertNum = info.expertPerRank * info.worldSize;
     int64_t activeNum = 0;
     int64_t dropPadMode = 0;
      int64_t expertTokensCountOrCumsumFlag = 2;

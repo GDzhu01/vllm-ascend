@@ -36,9 +36,9 @@ class OpGenerator:
         self._copy_template()
         self._rename_files()
         self._replace_content()
-        logging.info("成功为 %s/%s 创建算子工程！", self.op_type, self.op_name)
-        logging.info("工程路径: %s", self.dest_dir)
-        logging.info("Create the initial directory for %s under %s success", self.op_name, self.op_type)
+        logging.info(f"成功为 {self.op_type}/{self.op_name} 创建算子工程！")
+        logging.info(f"工程路径: {self.dest_dir}")
+        logging.info(f"Create the initial directory for {self.op_name} under {self.op_type} success")
 
     def _validate_inputs(self):
         """校验输入参数的有效性和安全性"""
@@ -56,7 +56,7 @@ class OpGenerator:
 
     def _copy_template(self):
         """复制模板文件到目标目录"""
-        logging.info("使用模板在 '%s' 创建算子工程...", self.dest_dir)
+        logging.info(f"使用模板在 '{self.dest_dir}' 创建算子工程...")
         if not os.path.exists(self.template_dir):
             raise FileNotFoundError(f"找不到模板目录 '{self.template_dir}'。请确保 'template/add' 目录存在。")
 
@@ -90,7 +90,7 @@ class OpGenerator:
             with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
         except OSError as e:
-            logging.warning("读取文件 '%s' 失败: %s", file_path, e)
+            logging.warning(f"读取文件 '{file_path}' 失败: {e}")
             return
 
         original_content = content
@@ -104,7 +104,7 @@ class OpGenerator:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
         except OSError as e:
-            logging.warning("写入文件 '%s' 失败: %s", file_path, e)
+            logging.warning(f"写入文件 '{file_path}' 失败: {e}")
 
     def _replace_content(self):
         """替换文件内容中的占位符"""
@@ -155,7 +155,7 @@ def main():
     try:
         execute(args)
     except Exception as e:
-        logging.error("发生非预期的错误，退出。错误信息: %s", e)
+        logging.error(f"发生非预期的错误，退出。错误信息: {e}")
         sys.exit(1)
 
 

@@ -141,7 +141,7 @@ __aicore__ inline void QLIVector<QLIT>::InitBuffers(TPipe *pipe)
 {
     pipe->InitBuffer(resMm1Buf_, 2 * CeilDiv(constInfo_.mBaseSize, 2) * s2BaseSize_ * sizeof(QK_T));   //大小：2(开dB) * 2 * 64 * 128 * 4 = 128KB
     resMm1UB_ = resMm1Buf_.Get<QK_T>();//qk
-    pipe->InitBuffer(weightBuf_, 2 * CeilDiv(s1BaseSize_, 2) * gSize_* sizeof(float));   // 大小：2(开dB) * 2 * 64 * 2 = 0.5KB
+    pipe->InitBuffer(weightBuf_, 2 * CeilDiv(s1BaseSize_, 2) * gSize_* sizeof(float));   // 大小：2(开dB) * 2 * 64 * 2 = 0.5KB 
     weightUB_ = weightBuf_.Get<float>();//weight
     pipe->InitBuffer(kScaleBuf_, 2 * s2BaseSize_ * sizeof(float));                   // 大小：2(开dB) * 128 * 4 = 1KB
     kScaleUB_ = kScaleBuf_.Get<float>();//kScale
@@ -153,7 +153,7 @@ __aicore__ inline void QLIVector<QLIT>::InitBuffers(TPipe *pipe)
     // Topk
     pipe->InitBuffer(mrgValueBuf_, (topkCountAlign256_ + trunkLen_) * sizeof(SCORE_T));     // 大小：(topkCountAlign256_ + 每次排序长度) * sizeof(SCORE_T)
     mrgValueLocal_ = mrgValueBuf_.Get<SCORE_T>();
-
+    
     pipe->InitBuffer(indicesOutBuf_, (topkCountAlign256_ + 64) * sizeof(uint32_t));         // 大小：(topkCountAlign256_ + 64) * 4  64:duplicate刷-1需要额外空间
     indicesOutLocal_ = indicesOutBuf_.Get<uint32_t>();
 
@@ -294,7 +294,7 @@ __aicore__ inline void QLIVector<QLIT>::GetKeyScale(const QLICommon::RunInfo &ru
             int32_t blockId = blockTableGm.GetValue(blockTableBatchOffset + startBlockTableIdx + i);
             SetFlag<HardEvent::S_MTE2>(KSCALE_S_MTE2_EVENT);
             WaitFlag<HardEvent::S_MTE2>(KSCALE_S_MTE2_EVENT);
-            AscendC::DataCopyPad(kScaleUB[(runInfo.loop % 2) * s2BaseSize_ + resUbBaseOffset + i * kCacheBlockSize_],
+            AscendC::DataCopyPad(kScaleUB[(runInfo.loop % 2) * s2BaseSize_ + resUbBaseOffset + i * kCacheBlockSize_], 
                                  kScaleGm[blockId * kCacheBlockSize_],
                                  copyInParams, padParams);
         }
@@ -313,11 +313,11 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
 {
     auto pingpong = (info.loop % 2);
     auto s1BaseSizePerAIV = CeilDiv(s1BaseSize_, 2);
-    int64_t curS1Idx = info.gS1Idx * s1BaseSize_;
-    int64_t curS2Idx = info.s2Idx * s2BaseSize_;
-    int64_t curS1ProcNum = curS1Idx + s1BaseSize_ > info.actS1Size ? info.actS1Size % s1BaseSize_ : s1BaseSize_;
+    int64_t curS1Idx = info.gS1Idx * s1BaseSize_;	 
+    int64_t curS2Idx = info.s2Idx * s2BaseSize_;	 
+    int64_t curS1ProcNum = curS1Idx + s1BaseSize_ > info.actS1Size ? info.actS1Size % s1BaseSize_ : s1BaseSize_;	 
     int64_t curAivS1Idx = curS1Idx + (blockId_ % 2) * CeilDiv(curS1ProcNum, 2);
-    int64_t curAivS1ProcNum = (blockId_ % 2 == 0) ? CeilDiv(curS1ProcNum, 2) : curS1ProcNum / 2;
+    int64_t curAivS1ProcNum = (blockId_ % 2 == 0) ? CeilDiv(curS1ProcNum, 2) : curS1ProcNum / 2; 
 
     if (curAivS1ProcNum == 0) {
         CrossCoreWaitFlag<QLICommon::ConstInfo::QLI_SYNC_MODE4, PIPE_V>(QLICommon::ConstInfo::CROSS_CV_EVENT + pingpong);  // V核等C核计算完mm1，mm1Res已搬运到UB
@@ -325,7 +325,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
         return;
     }
     WaitFlag<HardEvent::V_MTE2>(VEC1_V_MTE2_EVENT + pingpong);
-    //weightsGm --> weightUB_
+    //weightsGm --> weightUB_ 
     int64_t weightGmOffset = info.tensorWeightsOffset + curAivS1Idx * kHeadNum_ * gSize_;
     DataCopyPadExtParams<float> padWeightsParams{false, 0, 0, 0};
     DataCopyExtParams qwDataCopyExtParams;
@@ -333,7 +333,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
     qwDataCopyExtParams.blockLen = gSize_ * sizeof(float);
     qwDataCopyExtParams.srcStride = 0;
     qwDataCopyExtParams.dstStride = (UB_BANK_DEPTH_STRIDE - UB_BANK_STRIDE) / 32;
-    DataCopyPad(weightUB_[pingpong * (UB_BANK_STRIDE / sizeof(float))],
+    DataCopyPad(weightUB_[pingpong * (UB_BANK_STRIDE / sizeof(float))], 
                 weightsGm[weightGmOffset], qwDataCopyExtParams, padWeightsParams);
 
     //qScaleGm  -->  qScaleUB_
@@ -359,7 +359,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
     auto qkBase = resMm1UB_[pingpong * (UB_BANK_STRIDE / sizeof(QK_T))];
     auto qkVLstride = (UB_BANK_DEPTH_STRIDE / sizeof(QK_T)) / 2 * constInfo_.mBaseSize;
     vector1::BatchMulWeightAndReduceSum(outBase, UB_BANK_DEPTH_STRIDE / sizeof(SCORE_T),
-                                        qkBase, qkVLstride, (uint32_t)(gSize_ * UB_BANK_DEPTH_STRIDE / sizeof(QK_T)),
+                                        qkBase, qkVLstride, (uint32_t)(gSize_ * UB_BANK_DEPTH_STRIDE / sizeof(QK_T)), 
                                         weightBase, UB_BANK_DEPTH_STRIDE / sizeof(float),
                                         kScaleBase, (uint32_t)0,
                                         qScaleBase, UB_BANK_DEPTH_STRIDE / sizeof(float),
@@ -368,7 +368,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
     SetFlag<HardEvent::V_MTE3>(VEC1_V_MTE3_EVENT + pingpong);
     WaitFlag<HardEvent::V_MTE3>(VEC1_V_MTE3_EVENT + pingpong);
     //outUB_ --->  scoreGm
-    int64_t vec1OutGmOffset = blockId_ % 2 == 0 ? curS2Idx :
+    int64_t vec1OutGmOffset = blockId_ % 2 == 0 ? curS2Idx : 
                             s1BaseSizePerAIV * QLICommon::Align((uint64_t)constInfo_.kSeqSize, (uint64_t)s2BaseSize_) + curS2Idx;
     DataCopyExtParams copyOutParams;
     copyOutParams.blockCount = curAivS1ProcNum;
@@ -386,11 +386,11 @@ __aicore__ inline void QLIVector<QLIT>::ProcessTopK(const QLICommon::RunInfo &in
     SetFlag<HardEvent::MTE3_MTE2>(MTE3_MTE2_EVENT);
     WaitFlag<HardEvent::MTE3_MTE2>(MTE3_MTE2_EVENT);
 
-    int64_t curS1Idx = info.gS1Idx * s1BaseSize_;
-    int64_t curS2Idx = info.s2Idx * s2BaseSize_;
-    int64_t curS1ProcNum = curS1Idx + s1BaseSize_ > info.actS1Size ? info.actS1Size % s1BaseSize_ : s1BaseSize_;
+    int64_t curS1Idx = info.gS1Idx * s1BaseSize_;	 
+    int64_t curS2Idx = info.s2Idx * s2BaseSize_;	 
+    int64_t curS1ProcNum = curS1Idx + s1BaseSize_ > info.actS1Size ? info.actS1Size % s1BaseSize_ : s1BaseSize_;	 
     int64_t curAivS1Idx = curS1Idx + (blockId_ % 2) * CeilDiv(curS1ProcNum, 2);
-    int64_t curAivS1ProcNum = (blockId_ % 2 == 0) ? CeilDiv(curS1ProcNum, 2) : curS1ProcNum / 2;
+    int64_t curAivS1ProcNum = (blockId_ % 2 == 0) ? CeilDiv(curS1ProcNum, 2) : curS1ProcNum / 2; 
 
     AscendC::DataCopyExtParams copyInParams;
     copyInParams.blockCount = 1;
@@ -407,13 +407,13 @@ __aicore__ inline void QLIVector<QLIT>::ProcessTopK(const QLICommon::RunInfo &in
     int32_t cuRealAcSeq = info.actS2Size;
     if (constInfo_.attenMaskFlag) {
         cuRealAcSeq = info.actS2SizeOrig - info.actS1Size + curAivS1Idx + 1;
-    }
+    } 
 
     int32_t validS2Len = cuRealAcSeq;
     for (uint32_t i = 0; i < curAivS1ProcNum; i++) {
         uint32_t rowIdx = blockId_ % 2 * CeilDiv(curS1ProcNum, 2) + i;
         uint32_t vecOffset = blockId_ % 2 * CeilDiv(s1BaseSize_, 2) + i;
-
+        
         SCORE_T zero = 0;
         int32_t neg = -1;
         if (constInfo_.attenMaskFlag) {
@@ -493,7 +493,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessTopK(const QLICommon::RunInfo &in
         } else {
             AscendC::CreateVecIndex(indicesOutLocal_.ReinterpretCast<int32_t>(), (int32_t)zero, validS2Len);
         }
-
+        
         if (validS2Len < topkCount_) {
             uint64_t mask[1];
             mask[0] = ~0;
@@ -501,7 +501,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessTopK(const QLICommon::RunInfo &in
             PipeBarrier<PIPE_V>();
             Duplicate(indicesOutLocal_.ReinterpretCast<int32_t>()[validS2Len / 8 * 8], neg, mask, 1, 1, 0);
         }
-
+        
         if (validS2Len / 8 * 8 + 64 < topkCount_) {
             PipeBarrier<PIPE_V>();
             Duplicate(indicesOutLocal_.ReinterpretCast<int32_t>()[validS2Len / 8 * 8 + 64], neg, topkCount_ - (validS2Len / 8 * 8 + 64));

@@ -28,7 +28,7 @@ const std::tuple<aclTensor *, aclTensor *> GroupedMatmulSwigluQuantV2(const aclT
                          const aclTensor *xScale, const aclTensorList *weightAssistanceMatrix,
                          const aclTensor *bias, const aclTensor *smoothScale,
                          const aclTensor *groupList, int64_t dequantMode, int64_t dequantDtype,
-                         int64_t quantMode, int64_t quantDtype, bool transposeWeight, int64_t groupListType,
+                         int64_t quantMode, int64_t quantDtype, bool transposeWeight, int64_t groupListType, 
                          const aclIntArray *tuningConfigOptional, double swigluLimit,aclOpExecutor *executor)
 {
     L0_DFX(GroupedMatmulSwigluQuantV2, x, weight, weightScale, xScale, weightAssistanceMatrix, smoothScale,

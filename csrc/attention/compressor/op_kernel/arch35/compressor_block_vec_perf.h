@@ -791,7 +791,7 @@ CompressorBlockVectorPerf<COMP>::LoadFromWorkSpace(const LocalTensor<T> &dstLoca
     if (loopInfo.isCoreRowFirst && loopInfo.isCoreLoopFirst && sliceInfo.isFirst) { // 从cacheGm获取
         uint32_t srcSingleRowElemNum = constInfo_.headDim * coff_;
         uint64_t srcLocalOffset = dStartIdx;
-
+        
         DataCopyWithInputQue(dstLocal[dstLocalOffset], cacheTcGm[srcLocalOffset], copyRowCount, dDealSize, constInfo_.headDim, coff_ * dDealSize);
     } else if (sliceInfo.isFirst) { // 从存放MatMul结果的WorkSpace中获取
         uint32_t srcSingleRowElemNum = constInfo_.headDim * coff_;
@@ -827,7 +827,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::ReadFromCacheState(
         uint64_t stateOffset = idInBlockTable * constInfo_.blockSize * 2 * coff_ * constInfo_.headDim +
                                 remainRowCnt * 2 * coff_ * constInfo_.headDim +
                                 stateIdx * coff_ * constInfo_.headDim + dStartIdx;
-
+                               
         DataCopyWithInputQue(output[copyFinishRowCnt * coff_ * dDealSize], state[stateOffset], copyRowCount,
                                 dDealSize, coff_ * constInfo_.headDim * 2, coff_ * dDealSize);
         copyFinishRowCnt += copyRowCount;
@@ -1035,7 +1035,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::OverLapScoreKv(
             AddSingleApeToScore(scoreLocal, apeUb, originSliceInfo, dDealSize);
         }
     }
-
+    
     PipeBarrier<PIPE_V>();
 }
 

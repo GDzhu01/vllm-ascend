@@ -17,7 +17,7 @@
 
 #include "grouped_matmul_swiglu_quant_utils.h"
 namespace GROUPED_MATMUL_SWIGLU_QUANT {
-/** @brief internal computation class
+/** @brief intenal computation class
  */
 template <class mmType, bool sync = false, typename CHANNELDTYPE = float>
 class GMMSwigluCompute {

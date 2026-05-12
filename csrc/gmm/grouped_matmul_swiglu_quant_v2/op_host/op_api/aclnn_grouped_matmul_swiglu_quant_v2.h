@@ -23,15 +23,15 @@ extern "C" {
  * @param [in] weight:
  * 表示公式中的weight，数据类型支持INT4、FLOAT4_E2M1、FLOAT8_E4M3FN、FLOAT8_E5M2、INT8、HIFLOAT8数据类型，数据格式支持ND。
  * @param [in] weightScale:
- * 表示量化参数，数据类型支持UINT64、FLOAT32、FLOAT8_E8M0、BF16、FLOAT16数据类型，数据格式支持ND。
+ * 表示量化参数，数据类型支持UINT64、FLOAT32、FLOAT8_E8M0、BF16、FLOAT16数据类型，数据格式支持ND。 
  * @param [in] weightAssistMatrix:
- * 表示weight辅助矩阵，数据类型支持FLOAT32数据类型。
+ * 表示weight辅助矩阵，数据类型支持FLOAT32数据类型。 
  * @param [in] bias:
- * 表示偏移，数据类型支持FLOAT32数据类型，数据格式支持ND。
+ * 表示偏移，数据类型支持FLOAT32数据类型，数据格式支持ND。 
  * @param [in] xScale:
  * 表示perToken量化参数，数据类型支持FLOAT8_E8M0、FLOAT32数据类型，数据格式支持ND。
  * @param [in] smoothScale:
- * 左矩阵的的量化因子，数据类型支持FLOAT32数据类型，数据格式支持ND。
+ * 左矩阵的的量化因子，数据类型支持FLOAT32数据类型，数据格式支持ND。 
  * @param [in] groupList: 必选参数，表示每个分组参与计算的Token个数，数据类型支持INT64。
  * @param [in] dequantMode: 表示反量化计算类型，用于确定激活矩阵与权重矩阵的反量化方式。
  * @param [in] dequantDtype: 表示中间GroupedMatmul的结果数据类型。
@@ -49,8 +49,8 @@ aclnnStatus aclnnGroupedMatmulSwigluQuantV2GetWorkspaceSize(const aclTensor *x,
         const aclTensorList *weight, const aclTensorList *weightScale,
         const aclTensorList *weightAssistMatrix, const aclTensor *bias,
         const aclTensor *xScale, const aclTensor *smoothScale,
-        const aclTensor *groupList,  int64_t dequantMode,
-        int64_t dequantDtype, int64_t quantMode, int64_t groupListType,
+        const aclTensor *groupList,  int64_t dequantMode, 
+        int64_t dequantDtype, int64_t quantMode, int64_t groupListType, 
         const aclIntArray *tuningConfigOptional, double swigluLimit,
         aclTensor *output, aclTensor *outputScale,
         uint64_t *workspaceSize, aclOpExecutor **executor);

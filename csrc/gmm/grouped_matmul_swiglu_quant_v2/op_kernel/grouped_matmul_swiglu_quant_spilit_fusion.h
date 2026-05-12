@@ -44,9 +44,9 @@ public:
     __aicore__ inline GroupedMatmulDequantSwigluQuantFusion(
         TPipe* pipe, const GMMSwigluQuantV2TilingFusionData* __restrict tiling,
         const TCubeTiling* __restrict matmulTilingData)
-        : pipe_(pipe), tilingData_(tiling), matmulTilingData_(matmulTilingData) {
+        : pipe_(pipe), tilingData_(tiling), matmulTilingData_(matmulTilingData) {   
         }
-
+    
     __aicore__ inline int CeilDiv(int a, int b) {
         return (a + b  - 1) / b;
     }
@@ -423,7 +423,7 @@ public:
             xActLocalF32 = xActLocal.template ReinterpretCast<float>();
             LocalTensor<float> xLocalF32 = xActLocalF32;
             LocalTensor<float> activationScaleLocal = xActLocalF32[tilingData_->ubFactorDimx * tilingData_->N];
-
+            
             Cast(xLocalF32, xLocal, RoundMode::CAST_NONE, SWI_FACTOR * proDimsx * tilingData_->ubFactorDimy);
             PipeBarrier<PIPE_V>();
 

@@ -41,9 +41,9 @@ __aicore__ inline void DequantSwigluQuantGroup<TEMPLATE_DSQ_ARGS>::Process() {
   this->groupOffset_ = 0;
   int64_t cuGroupIdx = this->blockIdx_;
   for (int32_t groupIdx = 0; groupIdx < this->tl_->inGroupNum; ++groupIdx) {
-    int64_t realGroupIdx = this->tl_->speGroupType == 0 ? static_cast<int64_t>(groupIdx) :
+    int64_t realGroupIdx = this->tl_->speGroupType == 0 ? static_cast<int64_t>(groupIdx) : 
                            static_cast<int64_t>(this->groupIndexGm_(groupIdx*GROUPINDEX_STRIDE));
-    this->realDimx_ = this->tl_->speGroupType == 0 ? static_cast<int64_t>(this->groupIndexGm_(groupIdx)) :
+    this->realDimx_ = this->tl_->speGroupType == 0 ? static_cast<int64_t>(this->groupIndexGm_(groupIdx)) : 
                       static_cast<int64_t>(this->groupIndexGm_(groupIdx*GROUPINDEX_STRIDE + 1));
     if (this->realDimx_ <= 0 && this->tl_->speGroupType) {
       break;
