@@ -261,6 +261,7 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
 def get_kv_cache_coordinator(
     kv_cache_config: KVCacheConfig,
     max_model_len: int,
+    max_num_batched_tokens: int,
     use_eagle: bool,
     enable_caching: bool,
     enable_kv_cache_events: bool,

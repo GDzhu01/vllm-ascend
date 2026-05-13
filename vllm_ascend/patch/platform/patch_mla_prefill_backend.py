@@ -15,10 +15,14 @@
 import torch
 import vllm.model_executor.layers.attention.mla_attention
 
-from vllm_ascend.utils import vllm_version_is
-
-if not vllm_version_is("0.20.1"):
+try:
     from vllm.v1.attention.backends.mla.prefill.base import MLAPrefillBackend
+except ModuleNotFoundError:
+    # MLA prefill backend module not available in this vLLM version.
+    # This feature was added in vllm-project/vllm#32623.
+    MLAPrefillBackend = None
+
+if MLAPrefillBackend is not None:
 
     class AscendMLAPrefillBackend(MLAPrefillBackend):
         @staticmethod

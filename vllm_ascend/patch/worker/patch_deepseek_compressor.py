@@ -59,7 +59,7 @@ class AscendCompressorStateCache(CompressorStateCache):
             head_size=self.state_dim,
             dtype=self.dtype,
             sliding_window=self.sliding_window,
-            alignment=576,  # NOTE: FlashMLA requires 576B alignment
+            alignment=None,
             page_size_padded=page_size_padded
         )
 
@@ -78,12 +78,13 @@ class AscendDeepseekV32IndexerCache(DeepseekV32IndexerCache):
         cache_config: CacheConfig,
         compress_ratio: int = 1,
     ):
-        super().__init__(head_dim, dtype, prefix, cache_config, compress_ratio)
+        super().__init__(head_dim, dtype, prefix, cache_config)
+        self.compress_ratio = compress_ratio
 
 
     def get_kv_cache_spec(self, vllm_config: VllmConfig) -> KVCacheSpec:
         return AscendMLAAttentionSpec(  # Only has one vector instead of K + V
-            block_size=128,
+            block_size=self.cache_config.block_size,
             num_kv_heads=1,
             head_size=self.head_dim,
             dtype=self.dtype,
@@ -115,12 +116,9 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
         super().__init__(head_dim, window_size, torch.uint8, prefix, cache_config)
         self.dtype = dtype
 
-        # Block size is constrained by tensor sharing between SWA and C4A KV blocks.
-        # Since both block types share the same physical tensor, they must use the
-        # same page size. The C4A KV block shape [256//4, head_dim] = [64, head_dim]
-        # determines the SWA block size of 64 tokens per block.
-        # TODO(cmq): make SWA block size automatically determined and configurable.
-        self.block_size = 128
+        # Use cache_config.block_size for consistency with MLA layers,
+        # falling back to 16 which is the typical auto-detect value.
+        self.block_size = cache_config.block_size or 16
 
     def get_kv_cache_spec(self, vllm_config: VllmConfig) -> KVCacheSpec:
         # TODO(cmq): alignment = 0 if A3 else 128
@@ -132,7 +130,7 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
             sliding_window=self.window_size,
             cache_dtype_str=self.cache_config.cache_dtype,
             model_version="svf",
-            alignment=0,  # NOTE: FlashMLA requires 576B alignment
+            alignment=None,  # NOTE: FlashMLA requires 576B alignment
         )
 
     def forward(self): ...

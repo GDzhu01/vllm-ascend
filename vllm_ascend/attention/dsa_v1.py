@@ -455,7 +455,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             assert self.num_decodes + self.num_prefills == num_reqs
             assert self.num_decode_tokens + self.num_prefill_tokens == common_attn_metadata.num_actual_tokens
             num_input_tokens = common_attn_metadata.num_input_tokens
-            input_positions = common_attn_metadata.positions[:
+            input_positions = common_attn_metadata.positions.cpu()[:
                                                          num_input_tokens].long(
                                                          )
             self.common_ratio_to_sas_metadata["input_positions"] = input_positions
@@ -541,7 +541,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         tokens_start = self.num_decode_tokens
 
         if self.prefill_ratio_to_sas_metadata.get("prefill_input_positions", None) is None:
-            input_positions = common_attn_metadata.positions[:self.
+            input_positions = common_attn_metadata.positions.cpu()[:self.
                                                          num_actual_tokens].long(
                                                          )
             max_query_len = self.query_lens[reqs_start:].max().item()
@@ -784,7 +784,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             query_start_loc = common_attn_metadata.query_start_loc[:self.
                                                                 num_decodes + 1]
             self.decode_ratio_to_sas_metadata["query_start_loc"] = query_start_loc
-            input_positions = common_attn_metadata.positions[:self.num_decode_tokens].long()
+            input_positions = common_attn_metadata.positions.cpu()[:self.num_decode_tokens].long()
             self.decode_ratio_to_sas_metadata["input_positions"] = input_positions
             cos, sin = get_cos_and_sin_dsa(input_positions, use_cache=True)
             self.decode_ratio_to_sas_metadata["cos"] = cos
@@ -793,7 +793,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             query_start_loc_cpu = common_attn_metadata.query_start_loc_cpu[:self.
                                                                        num_decodes
                                                                        + 1]
-            input_positions_cpu = common_attn_metadata.positions_cpu[:self.num_decode_tokens].long()
+            input_positions_cpu = common_attn_metadata.positions.cpu()[:self.num_decode_tokens].long()
 
             max_seq_lens = common_attn_metadata.seq_lens_cpu[:self.
                                                             num_decodes].max(

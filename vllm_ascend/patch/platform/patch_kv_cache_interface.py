@@ -166,14 +166,8 @@ def _init_mla_cache_fields(spec: MLAAttentionSpec | SlidingWindowMLASpec):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AscendSlidingWindowMLASpec(SlidingWindowSpec):
-    """Sliding window attention with MLA cache format."""
-
-    cache_dtype_str: str | None = None
-    # DeepseekV4-only: see MLAAttentionSpec.model_version.
-    alignment: int | None = None  # Default to None for no padding.
-    compress_ratio: int = 1
-    model_version: str | None = None
+class AscendSlidingWindowMLASpec(SlidingWindowMLASpec):
+    """Sliding window attention with MLA cache format for Ascend NPU."""
 
     @property
     def storage_block_size(self) -> int:
@@ -181,6 +175,9 @@ class AscendSlidingWindowMLASpec(SlidingWindowSpec):
 
     @property
     def real_page_size_bytes(self) -> int:
+        if self.model_version in ("svf", "deepseek_v4"):
+            # Same as upstream deepseek_v4: 448B NoPE + 128B RoPE + 8B fp8 scale.
+            return self.storage_block_size * 584
         return (
             self.storage_block_size
             * self.num_kv_heads
@@ -222,6 +219,6 @@ class AscendSlidingWindowMLASpec(SlidingWindowSpec):
 
 
 vllm.v1.kv_cache_interface.MLAAttentionSpec = AscendMLAAttentionSpec
-vllm.v1.kv_cache_interface.MLAAttentionSpec = AscendSlidingWindowMLASpec
+vllm.v1.kv_cache_interface.SlidingWindowMLASpec = AscendSlidingWindowMLASpec
 vllm.model_executor.layers.attention.mla_attention.MLAAttentionSpec = AscendMLAAttentionSpec
 vllm.v1.kv_cache_interface._init_mla_cache_fields = _init_mla_cache_fields

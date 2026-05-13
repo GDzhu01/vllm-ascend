@@ -362,24 +362,32 @@ class DeepseekV4MoE(nn.Module):
             fused_moe_out = self.experts(hidden_states=hidden_states,
                                          router_logits=router_logits)
 
-        shared_output, final_hidden_states = fused_moe_out
-        if self.shared_experts is None:
-            assert shared_output is None
+        # In vLLM 0.18.1, FusedMoE.forward returns a single torch.Tensor
+        # (shared experts + routing scale are already handled internally by MoERunner).
+        # Newer vLLM versions return (shared_output, final_hidden_states).
+        if isinstance(fused_moe_out, tuple):
+            shared_output, final_hidden_states = fused_moe_out
 
-        if hidden_states.dtype != torch.float16:
-            if not self.is_rocm_aiter_moe_enabled:
-                if self.shared_experts is not None:
-                    assert shared_output is not None
-                    final_hidden_states = muls_add_triton(
-                        final_hidden_states, shared_output,
-                        self.routed_scaling_factor)
-                else:
-                    final_hidden_states *= self.routed_scaling_factor
-        elif self.shared_experts is not None:
-            assert shared_output is not None
-            final_hidden_states = muls_add_triton(
-                shared_output, final_hidden_states,
-                1.0 / self.routed_scaling_factor)
+            if self.shared_experts is None:
+                assert shared_output is None
+
+            if hidden_states.dtype != torch.float16:
+                if not self.is_rocm_aiter_moe_enabled:
+                    if self.shared_experts is not None:
+                        assert shared_output is not None
+                        final_hidden_states = muls_add_triton(
+                            final_hidden_states, shared_output,
+                            self.routed_scaling_factor)
+                    else:
+                        final_hidden_states *= self.routed_scaling_factor
+            elif self.shared_experts is not None:
+                assert shared_output is not None
+                final_hidden_states = muls_add_triton(
+                    shared_output, final_hidden_states,
+                    1.0 / self.routed_scaling_factor)
+        else:
+            # Single tensor: MoERunner already handles shared experts and routing scale.
+            final_hidden_states = fused_moe_out
 
         if self.is_sequence_parallel:
             final_hidden_states = tensor_model_parallel_all_gather(

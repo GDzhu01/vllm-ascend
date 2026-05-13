@@ -204,7 +204,7 @@ def dsa_forward(
 
     if self.compress_ratio > 1:
         state_cache = self.compressor.state_cache.kv_cache
-        compress_kv_cache = self.dsa_attn.kv_cache[forward_context.virtual_engine]
+        compress_kv_cache = self.dsa_attn.kv_cache
     if self.compress_ratio == 4:
         # TODO(qcs): refactor me
         indexer_state_cache = self.indexer.compressor.state_cache.kv_cache
