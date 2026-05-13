@@ -47,7 +47,6 @@ def all_gather_async(
         output = torch.empty(output_size, dtype=input.dtype, device=input.device)
     return output, dist.all_gather_into_tensor(output, input, group=group.device_group, async_op=async_op)
 
-
 def split_tensor_along_first_dim(
     tensor: torch.Tensor,
     num_partitions: int,

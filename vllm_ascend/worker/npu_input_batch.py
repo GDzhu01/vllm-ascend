@@ -121,7 +121,7 @@ class NPUInputBatch(InputBatch):
             num_speculative_tokens=num_speculative_tokens,
             kernel_sizes=kernel_block_sizes,
             cp_kv_cache_interleave_size=cp_kv_cache_interleave_size,
-            kv_cache_groups=kv_cache_groups,
+            kv_cache_groups=kv_cache_groups
         )
 
         # Sampling-related.

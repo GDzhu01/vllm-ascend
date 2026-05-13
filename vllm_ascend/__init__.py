@@ -66,8 +66,6 @@ def register_service_profiling():
 
     generate_service_profiling_config()
 
-
 def register_model():
     from .models import register_model
-
     register_model()

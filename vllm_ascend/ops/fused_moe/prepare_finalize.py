@@ -175,7 +175,7 @@ class PrepareAndFinalizeWithAll2All(PrepareAndFinalize):
             padded_hidden_states_shape=padded_hidden_states_shape,
             pertoken_scale=None,
         )
-
+    
     def pad_and_split_input_ids(
         self,
         input_ids,
@@ -189,7 +189,7 @@ class PrepareAndFinalizeWithAll2All(PrepareAndFinalize):
                 input_ids = torch.tensor_split(input_ids, self.tp_size, dim=0)
                 input_ids = input_ids[self.tp_rank]
         return input_ids
-
+    
     def finalize(
         self,
         hidden_states: torch.Tensor,
@@ -300,7 +300,7 @@ class PrepareAndFinalizeWithMC2(PrepareAndFinalizeWithAll2All):
             padded_hidden_states_shape=padded_hidden_states_shape,
             pertoken_scale=None,
         )
-
+    
     def pad_and_split_input_ids(
         self,
         input_ids,
@@ -367,7 +367,9 @@ class PrepareAndFinalizeWithAllGather(PrepareAndFinalize):
         if quant_type == QuantType.W8A8:
             hidden_states, pertoken_scale = torch_npu.npu_dynamic_quant(hidden_states)
         elif quant_type == QuantType.MXFP8:
-            hidden_states, pertoken_scale = torch_npu.npu_dynamic_mx_quant(hidden_states, dst_type=torch.float8_e4m3fn)
+            # TODO(linfeng): MXFP8 with AllGather+EP currently does not pre-quantize
+            # per-token activations in prepare. Keep quantization in the MoE MLP path.
+            pass
         elif quant_type == QuantType.MXFP4:
             # MXFP4 with AllGather+EP currently does not pre-quantize
             # per-token activations in prepare. Keep quantization in the MoE MLP path.
@@ -457,13 +459,14 @@ class PrepareAndFinalizeWithAllGather(PrepareAndFinalize):
             pertoken_scale=None,
         )
 
-    def all_gather_input_id_with_dp_group(self, input_ids: torch.Tensor) -> torch.Tensor:
+    def all_gather_input_id_with_dp_group(
+        self, input_ids: torch.Tensor) -> torch.Tensor:
         if self.moe_config.dp_size > 1:
             max_tokens_across_dp = _EXTRA_CTX.max_tokens_across_dp
             pad_size = max_tokens_across_dp - self.num_tokens
             if pad_size > 0:
                 input_ids = nn.functional.pad(input_ids, (0, pad_size))
-
+    
             input_ids = self.moe_config.dp_group.all_gather(input_ids, 0)
         return input_ids
 

@@ -88,7 +88,8 @@ packed_modules_model_mapping: dict[str, dict[str, list[str]]] = {
     },
     "deepseek_v4": {
         "gate_up_proj": ["gate_proj", "up_proj"],
-        "experts": ["experts.0.gate_proj", "experts.0.up_proj", "experts.0.down_proj"],
+        "experts":
+        ["experts.0.gate_proj", "experts.0.up_proj", "experts.0.down_proj"]
     },
     "pangu_ultra_moe": {
         "gate_up_proj": ["gate_proj", "up_proj"],
@@ -489,7 +490,9 @@ class AscendModelSlimConfig(QuantizationConfig):
         prefix_mapping = QUANT_MODEL_PREFIX_MAPPINGS.get(model_type)
         substr_mapping = QUANT_MODEL_SUBSTR_MAPPINGS.get(model_type)
         if prefix_mapping:
-            hf_to_vllm_mapper = WeightsMapper(orig_to_new_prefix=prefix_mapping, orig_to_new_substr=substr_mapping)
+            hf_to_vllm_mapper = WeightsMapper(
+                orig_to_new_prefix=prefix_mapping,
+                orig_to_new_substr=substr_mapping)
             return hf_to_vllm_mapper._map_name(prefix)
         return prefix
 
@@ -727,49 +730,49 @@ class AscendModelSlimConfig(QuantizationConfig):
         This handles known key transformations such as shared_head and
         weight_packed mappings.
         """
-        if "hc_head_fn" in self.quant_description:
+        if "hc_head_fn" in self.quant_description.keys():
             # TODO
             extra_quant_dict = {}
-            for name in self.quant_description:
+            for name in self.quant_description.keys():
                 new_name = name
-                if not name.startswith("model"):
-                    new_name = f"model.{name}"
+                if not name.startswith('model'):
+                    new_name = f'model.{name}'
                 extra_quant_dict[new_name] = self.quant_description[name]
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description:
+            for name in self.quant_description.keys():
                 new_name = name
-                if "attn" in name and "self_attn" not in name:
-                    new_name = name.replace(".attn.", ".self_attn.")
+                if 'attn' in name and 'self_attn' not in name:
+                    new_name = name.replace('.attn.', '.self_attn.')
                 extra_quant_dict[new_name] = self.quant_description[name]
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description:
+            for name in self.quant_description.keys():
                 new_name = name
-                if "ffn" in name:
-                    new_name = name.replace("ffn", "mlp")
+                if 'ffn' in name:
+                    new_name = name.replace('ffn', 'mlp')
                 extra_quant_dict[new_name] = self.quant_description[name]
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description:
+            for name in self.quant_description.keys():
                 new_name = name
-                if "w1" in name:
-                    new_name = name.replace(".w1.", ".gate_proj.")
-                if "w2" in name:
-                    new_name = name.replace(".w2.", ".down_proj.")
-                if "w3" in name:
-                    new_name = name.replace(".w3.", ".up_proj.")
+                if 'w1' in name:
+                    new_name = name.replace('.w1.', '.gate_proj.')
+                if 'w2' in name:
+                    new_name = name.replace('.w2.', '.down_proj.')
+                if 'w3' in name:
+                    new_name = name.replace('.w3.', '.up_proj.')
 
-                if "head" in name and "lm_head" not in name:
-                    new_name = name.replace("head", "lm_head")
-                if "embed" in name and "embed_tokens" not in name:
-                    new_name = name.replace("embed", "embed_tokens")
+                if 'head' in name and 'lm_head' not in name:
+                    new_name = name.replace('head', 'lm_head')
+                if 'embed' in name and 'embed_tokens' not in name:
+                    new_name = name.replace('embed', 'embed_tokens')
                 extra_quant_dict[new_name] = self.quant_description[name]
             self.quant_description.update(extra_quant_dict)
-
+            
         extra_quant_dict = {}
         for k in self.quant_description:
             if "shared_head" in k:
