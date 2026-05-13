@@ -26,7 +26,7 @@ from vllm.distributed import get_dp_group, get_ep_group, get_tp_group, tensor_mo
 from vllm.forward_context import get_forward_context
 from vllm.logger import logger
 from vllm.model_executor.layers.fused_moe.config import FusedMoEConfig
-from vllm.model_executor.layers.fused_moe.layer import FusedMoE, UnquantizedFusedMoEMethod
+from vllm.model_executor.layers.fused_moe.layer import FusedMoE, UnquantizedFusedMoEMethod, get_compressed_expert_map
 from vllm.model_executor.layers.fused_moe.routed_experts_capturer import RoutedExpertsCapturer
 from vllm.model_executor.layers.fused_moe.runner.moe_runner import MoERunner  # type: ignore
 
@@ -48,20 +48,7 @@ from vllm_ascend.utils import (
     npu_stream_switch,
     shared_expert_dp_enabled,
     shared_experts_calculation_stream,
-    vllm_version_is,
 )
-
-if vllm_version_is("0.20.2"):
-    from vllm.model_executor.layers.fused_moe.layer import get_compressed_expert_map
-else:
-
-    def get_compressed_expert_map(expert_map: torch.Tensor) -> str:
-        global_indices = torch.where(expert_map != -1)[0]
-        local_indices = expert_map[global_indices]
-        return ", ".join(
-            f"{local_index.item()}->{global_index.item()}"
-            for local_index, global_index in zip(local_indices, global_indices)
-        )
 
 
 @dataclass
@@ -91,7 +78,7 @@ def mock_true():
 
 
 class AscendUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
-    def __init__(self, moe: FusedMoEConfig = None, tid2eid=None):
+    def __init__(self, moe: FusedMoEConfig = None, tid2eid = None):
         super().__init__(moe=moe)
         self.dynamic_eplb = get_ascend_config().eplb_config.dynamic_eplb
         self.tid2eid = tid2eid
@@ -153,7 +140,7 @@ class AscendUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
     ) -> torch.Tensor:
         zero_expert_num = getattr(layer, "zero_expert_num", 0)
         zero_expert_type = getattr(layer, "zero_expert_type", None)
-        input_ids = getattr(get_forward_context(), "input_ids", None)
+        input_ids = get_forward_context().input_ids
         num_shared_experts = getattr(layer, "n_shared_experts", 0)
         if num_shared_experts is None:
             num_shared_experts = 0
@@ -177,16 +164,15 @@ class AscendUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
             e_score_correction_bias=e_score_correction_bias,
             num_experts=num_logical_experts,
             tid2eid=self.tid2eid,
-            input_ids=input_ids,
+            input_ids=input_ids
         )
         if layer.vllm_config.model_config is not None and layer.vllm_config.model_config.enable_return_routed_experts:
-            if vllm_version_is("0.20.2"):
-                # 0.20.2: capturer is a process-wide singleton.
-                capturer = RoutedExpertsCapturer.get_instance()
-            else:
-                capturer = getattr(layer, "_ascend_routed_experts_capturer", None)
+            capturer = RoutedExpertsCapturer.get_instance()
             if capturer is not None:
-                capturer.capture(layer_id=layer.layer_id, topk_ids=topk_ids)
+                capturer.capture(
+                    layer_id=layer.layer_id,
+                    topk_ids=topk_ids,
+                )
 
         if zero_expert_num > 0 and zero_expert_type is not None:
             topk_ids, topk_weights, zero_expert_result = zero_experts_compute(
@@ -340,8 +326,8 @@ class AscendFusedMoE(FusedMoE):
         # When apply_routed_scale_to_output=True, vLLM sets self.routed_scaling_factor
         # to 1.0 and expects the runner to apply scaling to output. But vllm-ascend
         # uses its own forward path, so we need the original value.
-        _ = kwargs.pop("hash") if "hash" in kwargs else None
-        tid2eid = kwargs.pop("tid2eid") if "tid2eid" in kwargs else None
+        _ = kwargs.pop('hash') if 'hash' in kwargs else None
+        tid2eid = kwargs.pop('tid2eid') if 'tid2eid' in kwargs else None
 
         self._original_routed_scaling_factor = kwargs.get("routed_scaling_factor", 1.0)
         super().__init__(*args, **kwargs)
@@ -360,12 +346,17 @@ class AscendFusedMoE(FusedMoE):
         self._expert_map = None
         self.log2phy = None
 
-        self.tid2eid = tid2eid
+        if tid2eid is not None:
+            self.tid2eid = tid2eid
+        else:
+            self.tid2eid = None
 
         if self.quant_config is None:
-            self.quant_method = AscendUnquantizedFusedMoEMethod(self.moe_config, tid2eid=self.tid2eid)
+            self.quant_method = AscendUnquantizedFusedMoEMethod(
+                self.moe_config, tid2eid=self.tid2eid)
         else:
-            self.quant_method = self.quant_config.get_quant_method(self, self.layer_name, tid2eid=self.tid2eid)
+            self.quant_method = self.quant_config.get_quant_method(
+                self, self.layer_name, tid2eid=self.tid2eid)
 
         assert self.quant_method is not None
         # Keep base_quant_method in sync with the swapped-in Ascend method,
@@ -377,9 +368,8 @@ class AscendFusedMoE(FusedMoE):
 
         self.moe_config.tp_group = get_tp_group()
         self.moe_config.dp_group = get_dp_group()
-        if self.moe_config.ep_size > 1:
-            self.moe_config.ep_group = get_ep_group()
-            self.moe_config.mc2_group = get_mc2_group()
+        self.moe_config.ep_group = get_ep_group()
+        self.moe_config.mc2_group = get_mc2_group()
         self.moe_config.supports_eplb = self.quant_method.supports_eplb
         ascend_config = get_ascend_config()
         self.multistream_overlap_shared_expert = ascend_config.multistream_overlap_shared_expert and has_shared_experts
@@ -391,11 +381,8 @@ class AscendFusedMoE(FusedMoE):
         self.multistream_overlap_gate = ascend_config.multistream_overlap_gate
         if self.multistream_overlap_gate and AscendFusedMoE.gate_stream is None:
             AscendFusedMoE.gate_stream = torch.npu.Stream()
-        if (
-            self.custom_routing_function is None
-            and self.e_score_correction_bias is not None
-            and self.scoring_func != "sqrtsoftplus"
-        ):
+        if self.custom_routing_function is None and self.e_score_correction_bias is not None and \
+            self.scoring_func != "sqrtsoftplus":
             vllm_config = get_current_vllm_config()
             self.e_score_correction_bias.data = self.e_score_correction_bias.data.to(
                 dtype=vllm_config.model_config.dtype
@@ -437,7 +424,7 @@ class AscendFusedMoE(FusedMoE):
         self.moe_config.num_experts = self.global_num_experts
         self.moe_config.num_local_experts = self.local_num_experts
         self.moe_config.global_redundant_expert_num = self.global_redundant_expert_num
-        self.swiglu_limit = getattr(self.vllm_config.model_config.hf_config, "swiglu_limit", 1000000)
+        self.swiglu_limit= getattr(self.vllm_config.model_config.hf_config, "swiglu_limit", 1000000)
 
         moe_quant_params = {
             "num_experts": self.local_num_experts,
@@ -557,7 +544,7 @@ class AscendFusedMoE(FusedMoE):
 
     @property
     def is_internal_router(self) -> bool:
-        return False
+        return self.multistream_overlap_shared_expert
 
     @property
     def use_dp_chunking(self) -> bool:
@@ -612,7 +599,7 @@ class AscendFusedMoE(FusedMoE):
                 ):
                     shared_out = tensor_model_parallel_all_reduce(shared_out)
                 set_flash_common3_context(shared_out=shared_out)
-                input_ids = getattr(get_forward_context(), "input_ids", None)
+                input_ids = get_forward_context().input_ids
                 topk_weights, topk_ids = select_experts(
                     hidden_states=hidden_states,
                     router_logits=router_logits,
@@ -710,7 +697,7 @@ class AscendFusedMoE(FusedMoE):
                 before_dispatch_evt=fused_experts_results.before_dispatch_evt,
                 before_gmm2_evt=fused_experts_results.before_gmm2_evt,
                 before_combine_evt=fused_experts_results.before_combine_evt,
-                swiglu_limit=fused_experts_results.swiglu_limit,
+                swiglu_limit=fused_experts_results.swiglu_limit
             )
         else:
             # The vLLM FusedMoE forward_impl does not return events.
@@ -740,7 +727,7 @@ class AscendFusedMoE(FusedMoE):
                     self._shared_experts.gate_up_proj.weight_scale,
                     pertoken_scale=None,
                     bias=None,
-                    output_dtype=torch.int32,
+                    output_dtype=torch.int32
                 )
                 # Execute activation concurrently with gmm2.
 
@@ -767,7 +754,7 @@ class AscendFusedMoE(FusedMoE):
                     self._shared_experts.down_proj.weight_scale,
                     pertoken_scale=swiglu_out_scale,
                     bias=None,
-                    output_dtype=original_dtype,
+                    output_dtype=original_dtype
                 )
             else:
                 # Ensure the shared experts wait for hidden_states to be ready.
@@ -802,7 +789,16 @@ class AscendFusedMoE(FusedMoE):
         if self.shared_multistream_overlap_gate:
             set_flash_common3_context(shared_experts=self._shared_experts)
 
-        before_routed_experts = torch.npu.current_stream().record_event()
+        if self.multistream_overlap_shared_expert:
+            # NOTE(Angazenn): To make this cast explicitly, the hbm usage might
+            # increase with extra hidden states. We also assume that all gate
+            # linear is unquantized so that we the weight is pre-casted in
+            # process_weights_after_loading of AscendUnquantizedLinearMethod.
+            hidden_states_fp32 = hidden_states.float()
+            before_routed_experts = torch.npu.current_stream().record_event()
+            router_logits = F.linear(hidden_states_fp32, self.gate.weight_fp32)
+        else:
+            before_routed_experts = torch.npu.current_stream().record_event()
 
         fused_moe_results = self.forward_impl(
             hidden_states=hidden_states,
@@ -826,7 +822,7 @@ class AscendFusedMoE(FusedMoE):
                     before_dispatch=fused_moe_results.before_dispatch_evt,
                     before_gmm2=fused_moe_results.before_gmm2_evt,
                     before_combine=fused_moe_results.before_combine_evt,
-                    swiglu_limit=fused_moe_results.swiglu_limit,
+                    swiglu_limit=fused_moe_results.swiglu_limit
                 ),
             )
         return shared_out, routed_out

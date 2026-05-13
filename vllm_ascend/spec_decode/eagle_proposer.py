@@ -316,7 +316,10 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 # MTP model
                 share_embeddings = not self.use_compress
                 if share_embeddings:
-                    logger.info("Detected MTP model. Sharing target model embedding weights with the draft model.")
+                    logger.info(
+                        "Detected MTP model. "
+                        "Sharing target model embedding weights with the draft model."
+                    )
 
             if share_embeddings:
                 if hasattr(self.model.model, "embed_tokens"):
@@ -348,19 +351,30 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
 
         if self.vllm_config.compilation_config.cudagraph_mode.has_full_cudagraphs() and self.use_cuda_graph:
             self.update_stream = torch.npu.Stream()
-            self._runnable = ACLGraphWrapper(
-                self._run_merged_draft,
-                self.vllm_config,
-                runtime_mode=CUDAGraphMode.FULL,
-                use_eagle=self.use_eagle,
-                enable_enpu=self.enable_enpu,
-            )
+            if self.method == "dflash":
+                self.model = ACLGraphWrapper(
+                    self.model,
+                    self.vllm_config,
+                    runtime_mode=CUDAGraphMode.FULL,
+                    use_eagle=self.use_eagle,
+                    enable_enpu=self.enable_enpu,
+                )
+            else:
+                self._runnable = ACLGraphWrapper(
+                    self._run_merged_draft,
+                    self.vllm_config,
+                    runtime_mode=CUDAGraphMode.FULL,
+                    use_eagle=self.use_eagle,
+                    enable_enpu=self.enable_enpu,
+                )
 
     def _maybe_share_topk_indices(self, target_language_model: nn.Module) -> None:
         if hasattr(target_language_model.model, "topk_indices_buffer"):
             if hasattr(self.model.model, "topk_indices_buffer"):
                 del self.model.model.topk_indices_buffer
-            self.model.model.topk_indices_buffer = target_language_model.model.topk_indices_buffer
+            self.model.model.topk_indices_buffer = (
+                target_language_model.model.topk_indices_buffer
+            )
             logger.info(
                 "Detecting MTP model with topk_indices_buffer."
                 "Sharing target model topk_indices_buffer with the draft model."
@@ -376,7 +390,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         # Currently, new objects will be assigned to the lists in attn_metadata
         # when update. So we can use the shallow copy.
         return copy.copy(attn_metadata)
-
+    
     def _freeze_draft_step_attn_metadata(self, attn_metadata):
         decode_metadata = getattr(attn_metadata, "decode", None)
         if decode_metadata is not None:
@@ -708,15 +722,14 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         # FIXME(woosuk): The below two ops cause synchronization. Optimize.
         assert len(self.draft_attn_groups) > 0
         builder = self.draft_attn_groups[0].get_metadata_builder()
-        extra_attn_metadata_args: dict = {}
-        if self.use_compress:
-            extra_attn_metadata_args = dict(
-                prefill_ratio_to_sas_metadata=dict(),
-                decode_ratio_to_sas_metadata=dict(),
-                common_ratio_to_sas_metadata=dict(),
-                block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
-            )
+        extra_attn_metadata_args = dict(
+                    prefill_ratio_to_sas_metadata=dict(),
+                    decode_ratio_to_sas_metadata=dict(),
+                    common_ratio_to_sas_metadata=dict(),
+                    block_size=self.draft_attn_groups[0].kv_cache_spec.block_size)
         attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model(), **extra_attn_metadata_args)
+        attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
+        attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model())
 
         if hasattr(attn_metadata, "causal") and not attn_metadata.causal:
             attn_metadata.attn_mask = None
@@ -812,6 +825,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                                 mtp_slot_mapping,
                                 attn_group=attn_group,
                             )
+                            attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
                             for layer_name in self.attn_layer_names:
                                 per_layer_attn_metadata[layer_name] = attn_metadata
                         multi_steps_attn_metadata.append(per_layer_attn_metadata)
@@ -831,6 +845,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                             aclgraph_runtime_mode,
                             attn_group=attn_group,
                         )
+                        attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
                         for layer_name in self.attn_layer_names:
                             per_layer_attn_metadata[layer_name] = attn_metadata
                     multi_steps_attn_metadata.append(per_layer_attn_metadata)
@@ -1028,7 +1043,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             # copy inputs to buffer for cudagraph
             self.input_ids[:batch_size] = input_ids
             self._set_positions(batch_size, clamped_positions)
-            self.hidden_states[:batch_size] = hidden_states.view(batch_size, -1)
+            self.hidden_states[:batch_size] = hidden_states
             if self.supports_mm_inputs:
                 self.inputs_embeds[:batch_size] = self.model.embed_input_ids(input_ids)
 
@@ -1200,7 +1215,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 target_positions = target_positions[0]
 
             self._set_positions(num_tokens, target_positions)
-            self.hidden_states[:num_tokens] = target_hidden_states.view(num_tokens, -1)
+            self.hidden_states[:num_tokens] = target_hidden_states
 
             return num_tokens, token_indices_to_sample, cad, (query_lens_d, ori_token_indices_to_sample)
         else:
@@ -1439,7 +1454,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             # However, in vllm-ascend, the above value can be multiple of `kernel_block_size`,
             # which is not correct for computing `slot_mapping` below.
             block_size = self.kernel_block_size
-            if not isinstance(block_size, int) or self.use_compress:
+            if not isinstance(block_size, int):
                 block_size = 128
 
             # Compute the slot mapping.
@@ -1477,23 +1492,17 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
 
         attn_metadata_builder = attn_group.get_metadata_builder()
 
-        if self.use_compress:
-            extra_attn_metadata_args = dict(
-                prefill_ratio_to_sas_metadata=dict(),
-                decode_ratio_to_sas_metadata=dict(),
-                common_ratio_to_sas_metadata=dict(),
-                block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
-            )
-            attn_metadata = attn_metadata_builder.build_for_drafting(
-                draft_step,
-                common_attn_metadata,
-                **extra_attn_metadata_args,
-            )
-        else:
-            attn_metadata = attn_metadata_builder.build(
-                0,
-                common_attn_metadata,
-                self.runner.get_model(),
+        extra_attn_metadata_args = dict(
+                    prefill_ratio_to_sas_metadata=dict(),
+                    decode_ratio_to_sas_metadata=dict(),
+                    common_ratio_to_sas_metadata=dict(),
+                    block_size=self.draft_attn_groups[0].kv_cache_spec.block_size)
+
+        attn_metadata = attn_metadata_builder.build(
+            0,
+            common_attn_metadata,
+            self.runner.get_model(),
+            **extra_attn_metadata_args,
             )
 
         if self.pcp_size * self.dcp_size > 1:
@@ -1676,9 +1685,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             slot_mapping=common_attn_metadata.slot_mapping,
             actual_seq_lengths_q=self.runner.actual_seq_lengths_q,
             positions=common_attn_metadata.positions[token_indices],
-            positions_cpu=common_attn_metadata.positions_cpu[token_indices]
-            if common_attn_metadata.positions_cpu is not None
-            else None,
+            positions_cpu=common_attn_metadata.positions_cpu[token_indices],
             attn_state=self.runner.attn_state,
             decode_token_per_req=self.runner.decode_token_per_req,
             max_seq_len=0,

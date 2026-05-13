@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from typing import Optional
 from collections.abc import Callable
 
 import torch
@@ -22,8 +23,9 @@ from vllm.distributed import get_tp_group
 from vllm.forward_context import get_forward_context
 
 from vllm_ascend.ascend_forward_context import MoECommType
-from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.distributed.utils import split_tensor_along_first_dim
+
+from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.utils import get_weight_prefetch_method
 
 
@@ -44,8 +46,8 @@ def select_experts(
     num_logical_experts: int = -1,
     num_shared_experts: int = 0,
     num_experts: int = -1,
-    input_ids: torch.Tensor | None = None,
-    tid2eid: torch.Tensor | None = None,
+    input_ids: Optional[torch.Tensor] = None,
+    tid2eid: Optional[torch.Tensor] = None,
 ):
     """
     Fused experts with select experts.
@@ -150,7 +152,7 @@ def check_npu_moe_gating_top_k(
         return False
     if custom_routing_function is not None:
         return False
-    if scoring_func != "softmax" and scoring_func != "sigmoid" and scoring_func != "sqrtsoftplus":
+    if scoring_func != "softmax" and scoring_func != "sigmoid" and scoring_func != 'sqrtsoftplus':
         return False
     topk_group = topk_group if topk_group is not None else 1
     num_expert_group = num_expert_group if num_expert_group is not None else 1
@@ -245,7 +247,7 @@ def _select_experts_with_fusion_ops(
     scoring_func: str = "softmax",
     routed_scaling_factor=1.0,
     tid2eid=None,
-    input_ids=None,
+    input_ids=None
 ):
     topk_group = topk_group if topk_group is not None else 1
     num_expert_group = num_expert_group if num_expert_group is not None else 1
@@ -258,15 +260,18 @@ def _select_experts_with_fusion_ops(
             tid2eid_ones = tid2eid.to(torch.int32)
             if forward_context.moe_comm_type == MoECommType.ALLGATHER:
                 prepare_finalize = forward_context.moe_comm_method.prepare_finalize
-                input_ids = prepare_finalize.all_gather_input_id_with_dp_group(input_ids)
+                input_ids = prepare_finalize.all_gather_input_id_with_dp_group(
+                    input_ids)
             else:
-                input_ids = forward_context.moe_comm_method.pad_and_split_input_ids(input_ids)
+                input_ids = forward_context.moe_comm_method.pad_and_split_input_ids(
+                    input_ids)
 
             if forward_context.flash_comm_v1_enabled and forward_context.moe_comm_type != MoECommType.ALLGATHER:
                 # Process for Flash Comm V1
                 tp_size = get_tp_group().world_size
                 tp_rank = get_tp_group().rank_in_group
-                splitted_input = split_tensor_along_first_dim(input_ids, num_partitions=tp_size)
+                splitted_input = split_tensor_along_first_dim(
+                    input_ids, num_partitions=tp_size)
                 input_ids = splitted_input[tp_rank].contiguous()
             input_ids = torch.where(input_ids == -1, 0, input_ids)
         else:
@@ -281,13 +286,13 @@ def _select_experts_with_fusion_ops(
             k_group=topk_group,
             group_count=num_expert_group,
             routed_scaling_factor=1.0,
-            eps=1e-20,
+            eps=float(1e-20),
             group_select_mode=1,
             # The hash custom op currently rejects renorm != 0. Apply
             # norm_topk_prob in Python below before returning to MoE compute.
             renorm=0,
             norm_type=2,
-            out_flag=False,
+            out_flag=False
         )
         # Match DeepSeek V4 routing: normalize sqrtsoftplus top-k weights
         # before applying the routed scale. DSV4 non-AITER callers pass 1.0
@@ -330,7 +335,7 @@ def _native_select_experts(
     num_experts: torch.Tensor | None = None,
     use_hash: bool = False,
     tid2eid: dict[int, int] | None = None,
-    input_ids: torch.Tensor | None = None,
+    input_ids: torch.Tensor | None = None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Select top-k experts based on router logits.
@@ -374,7 +379,7 @@ def _native_select_experts(
             e_score_correction_bias=e_score_correction_bias,
         )
         return topk_weights * routed_scaling_factor, topk_ids
-
+    
     if e_score_correction_bias is not None:
         topk_weights = topk_weights + e_score_correction_bias
 
