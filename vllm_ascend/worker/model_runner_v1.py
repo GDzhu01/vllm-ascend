@@ -2237,7 +2237,7 @@ class NPUModelRunner(GPUModelRunner):
         if (
             forward_context.cudagraph_runtime_mode == CUDAGraphMode.FULL
             and not forward_context.capturing
-            and not self.use_sparse
+            and not self.use_sparse and not self.use_compress
         ):
             if self.enable_enpu:
                 torch.npu.current_stream().synchronize()
@@ -2904,8 +2904,8 @@ class NPUModelRunner(GPUModelRunner):
             pad_attn = cudagraph_runtime_mode == CUDAGraphMode.FULL
             # check how to build dummy
             if self.use_compress:
-                self.positions.np.fill(127)
-                self.positions.copy_to_gpu()
+                self.positions.fill_(127)
+                # self.positions.copy_to_gpu()
             attn_metadata, _ = self._build_attention_metadata(
                 num_tokens=num_tokens_unpadded,
                 num_tokens_padded=num_tokens_padded,
@@ -3020,8 +3020,8 @@ class NPUModelRunner(GPUModelRunner):
             if self.dynamic_eplb:
                 self.eplb_updator.forward_end()
             if self.use_compress and force_attention:
-                self.positions.np.fill(0)
-                self.positions.copy_to_gpu()
+                self.positions.fill_(0)
+                # self.positions.copy_to_gpu()
             return hidden_states, hidden_states
 
     @torch.inference_mode()
@@ -3124,8 +3124,6 @@ class NPUModelRunner(GPUModelRunner):
             kv_cache_config: Configuration for the KV cache, including the KV
             cache size of each layer
         """
-        if torch.distributed.get_rank() == 0:
-            logger.info(f'{kv_cache_config=}')
         kv_cache_config = deepcopy(kv_cache_config)
         self.kv_cache_config = kv_cache_config
         self._mamba_copy_bufs = None
