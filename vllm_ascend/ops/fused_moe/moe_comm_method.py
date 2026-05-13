@@ -145,8 +145,6 @@ class MoECommMethod(ABC):
 
         mlp_output, before_gmm2_evt = self._apply_mlp(mlp_compute_input)
 
-        mlp_output = self._apply_mlp(mlp_compute_input)
-
         before_combine_evt = torch.npu.current_stream().record_event()
         routed_out = self.token_dispatcher.token_combine(
             hidden_states=mlp_output,
