@@ -1,10 +1,11 @@
+from typing import Optional
 import numpy as np
 import torch
 from vllm.distributed import get_dcp_group, get_pcp_group
 from vllm.utils.math_utils import cdiv
 from vllm.v1.attention.backends.utils import PAD_SLOT_ID
-from vllm.v1.kv_cache_interface import KVCacheGroupSpec
 from vllm.v1.utils import CpuGpuBuffer
+from vllm.v1.kv_cache_interface import KVCacheGroupSpec
 from vllm.v1.worker.block_table import _compute_slot_mapping_kernel
 from vllm.v1.worker.cp_utils import get_total_cp_world_size
 
@@ -25,13 +26,13 @@ class BlockTable:
     ):
         self.max_num_reqs = max_num_reqs
         compress_ratio = 1
-        if (
-            kv_cache_group is not None
-            and hasattr(kv_cache_group, "kv_cache_spec")
-            and hasattr(kv_cache_group.kv_cache_spec, "compress_ratio")
-        ):
+        if kv_cache_group is not None and \
+                hasattr(kv_cache_group, "kv_cache_spec") and \
+                hasattr(kv_cache_group.kv_cache_spec, "compress_ratio"):
             compress_ratio = kv_cache_group.kv_cache_spec.compress_ratio
-        max_num_blocks_per_req = max(cdiv(max_num_blocks_per_req, compress_ratio), 1)
+        max_num_blocks_per_req = max(
+            cdiv(max_num_blocks_per_req, compress_ratio), 1
+        )
         self.max_num_blocks_per_req = max_num_blocks_per_req
         self.max_num_batched_tokens = max_num_batched_tokens
         self.pin_memory = pin_memory
@@ -227,7 +228,6 @@ class BlockTable:
             block_numbers = self.block_table.np.ravel()[block_table_indices]
             block_offsets = positions % self.block_size
             np.add(block_numbers * self.block_size, block_offsets, out=self.slot_mapping.np[: req_indices.shape[0]])
-            self.slot_mapping.copy_to_gpu(req_indices.shape[0])
 
     def commit_block_table(self, num_reqs: int) -> None:
         self.block_table.copy_to_gpu(num_reqs)
@@ -310,41 +310,21 @@ class MultiGroupBlockTable:
             )
 
         # Use zip to pair block_sizes with kernel_sizes one-to-one
-        if kv_cache_groups is not None:
-            self.block_tables = [
-                BlockTable(
-                    block_size,
-                    max_num_reqs,
-                    max_num_blocks_per_req,
-                    max_num_batched_tokens,
-                    pin_memory,
-                    device,
-                    kernel_size_list,
-                    cp_kv_cache_interleave_size,
-                    num_speculative_tokens,
-                    kv_cache_group,
-                )
-                for block_size, kernel_size_list, max_num_blocks_per_req, kv_cache_group in zip(
-                    block_sizes, kernel_sizes, max_num_blocks, kv_cache_groups
-                )
-            ]
-        else:
-            self.block_tables = [
-                BlockTable(
-                    block_size,
-                    max_num_reqs,
-                    max_num_blocks_per_req,
-                    max_num_batched_tokens,
-                    pin_memory,
-                    device,
-                    kernel_size_list,
-                    cp_kv_cache_interleave_size,
-                    num_speculative_tokens,
-                )
-                for block_size, kernel_size_list, max_num_blocks_per_req in zip(
-                    block_sizes, kernel_sizes, max_num_blocks
-                )
-            ]
+        self.block_tables = [
+            BlockTable(
+                block_size,
+                max_num_reqs,
+                max_num_blocks_per_req,
+                max_num_batched_tokens,
+                pin_memory,
+                device,
+                kernel_size_list,
+                cp_kv_cache_interleave_size,
+                num_speculative_tokens,
+                kv_cache_group
+            )
+            for block_size, kernel_size_list, max_num_blocks_per_req in zip(block_sizes, kernel_sizes, max_num_blocks)
+        ]
 
     def append_row(self, block_ids: tuple[list[int], ...], row_idx: int) -> None:
         for i, block_table in enumerate(self.block_tables):
@@ -371,12 +351,14 @@ class MultiGroupBlockTable:
         num_reqs: int,
         query_start_loc: torch.Tensor,
         positions: torch.Tensor,
-        positions_compressed_list: list[np.ndarray] | None = None,
-        req_indices_compressed_list: list[np.ndarray] | None = None,
+        positions_compressed_list: Optional[list[np.ndarray]] = None,
+        req_indices_compressed_list: Optional[list[np.ndarray]] = None,
     ) -> None:
         for i, block_table in enumerate(self.block_tables):
             if positions_compressed_list and req_indices_compressed_list:
-                block_table.compute_slot_mapping_draft(req_indices_compressed_list[i], positions_compressed_list[i])
+                block_table.compute_slot_mapping_draft(
+                    req_indices_compressed_list[i],
+                    positions_compressed_list[i])
             else:
                 block_table.compute_slot_mapping(num_reqs, query_start_loc, positions)
 
@@ -384,12 +366,14 @@ class MultiGroupBlockTable:
         self,
         req_indices: np.ndarray,
         positions: np.ndarray,
-        positions_compressed_list: list[np.ndarray] | None = None,
-        req_indices_compressed_list: list[np.ndarray] | None = None,
+        positions_compressed_list: Optional[list[np.ndarray]] = None,
+        req_indices_compressed_list: Optional[list[np.ndarray]] = None,
     ) -> None:
         for i, block_table in enumerate(self.block_tables):
             if positions_compressed_list and req_indices_compressed_list:
-                block_table.compute_slot_mapping_draft(req_indices_compressed_list[i], positions_compressed_list[i])
+                block_table.compute_slot_mapping_draft(
+                    req_indices_compressed_list[i],
+                    positions_compressed_list[i])
             else:
                 block_table.compute_slot_mapping_draft(req_indices, positions)
 
