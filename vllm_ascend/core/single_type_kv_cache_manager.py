@@ -7,16 +7,27 @@ from vllm.utils.math_utils import cdiv
 from vllm.v1.core.block_pool import BlockPool
 from vllm.v1.core.kv_cache_utils import BlockHashList, KVCacheBlock
 from vllm.v1.core.single_type_kv_cache_manager import (
-    FullAttentionManager,
-    SingleTypeKVCacheManager,
-    spec_manager_map,
-)
-from vllm.v1.kv_cache_interface import FullAttentionSpec, KVCacheSpec, MLAAttentionSpec
+    SingleTypeKVCacheManager, SlidingWindowManager, FullAttentionManager, spec_manager_map)
+from vllm.v1.kv_cache_interface import KVCacheSpec, AttentionSpec, FullAttentionSpec, MLAAttentionSpec
 from vllm.v1.request import Request
+
+from vllm_ascend.core.kv_cache_spec import (CompressAttentionSpec, # --
+                                            Compress4AttentionSpec,
+                                            Compress128AttentionSpec,
+                                            SWAAttentionSpec,  # --
+                                            C4AttnKVStateSpec,
+                                            C4AttnScoreStateSpec,
+                                            C128AttnKVStateSpec,
+                                            C128AttnScoreStateSpec,
+                                            C4IndexerKVStateSpec,
+                                            C4IndexerScoreStateSpec,
+                                            C4IndexerSpec)
 
 
 class CompressAttentionManager(FullAttentionManager):
-    def __init__(self, kv_cache_spec: MLAAttentionSpec, block_pool: BlockPool, **kwargs) -> None:
+
+    def __init__(self, kv_cache_spec: CompressAttentionSpec,
+                 block_pool: BlockPool, **kwargs) -> None:
         super().__init__(kv_cache_spec, block_pool, **kwargs)
         self.compress_ratio = kv_cache_spec.compress_ratio
         self._null_block = block_pool.null_block
@@ -28,7 +39,6 @@ class CompressAttentionManager(FullAttentionManager):
         new_computed_blocks: Sequence[KVCacheBlock],
         total_computed_tokens: int,
         num_tokens_main_model: int,
-        apply_admission_cap: bool = False,
     ) -> int:
         # Allocate extra `num_speculative_blocks` blocks for
         # speculative decoding (MTP/EAGLE) with linear attention.
@@ -37,14 +47,8 @@ class CompressAttentionManager(FullAttentionManager):
         num_tokens //= self.compress_ratio
         num_tokens_main_model //= self.compress_ratio
 
-        return super().get_num_blocks_to_allocate(
-            request_id,
-            num_tokens,
-            new_computed_blocks,
-            total_computed_tokens,
-            num_tokens_main_model,
-            apply_admission_cap,
-        )
+        return super().get_num_blocks_to_allocate(request_id, num_tokens,
+                                                  new_computed_blocks, total_computed_tokens, num_tokens_main_model)
 
     def allocate_new_computed_blocks(
         self,
@@ -78,7 +82,9 @@ class CompressAttentionManager(FullAttentionManager):
         # A new request.
         req_blocks = self.req_to_blocks[request_id]
         assert len(req_blocks) == 0
-        num_total_computed_tokens = num_local_computed_tokens + num_external_computed_tokens
+        num_total_computed_tokens = (
+            num_local_computed_tokens + num_external_computed_tokens
+        )
         num_total_computed_tokens //= self.compress_ratio
         num_skipped_tokens = self.get_num_skipped_tokens(num_total_computed_tokens)
         num_skipped_blocks = num_skipped_tokens // self.block_size
@@ -96,7 +102,9 @@ class CompressAttentionManager(FullAttentionManager):
         if self.enable_caching:
             self.block_pool.touch(new_computed_blocks)
         else:
-            assert not any(new_computed_blocks), "Computed blocks should be empty when prefix caching is disabled"
+            assert not any(new_computed_blocks), (
+                "Computed blocks should be empty when prefix caching is disabled"
+            )
 
         # Skip blocks are padded with null blocks.
         req_blocks.extend([self._null_block] * num_skipped_blocks)
@@ -116,7 +124,9 @@ class CompressAttentionManager(FullAttentionManager):
             if type(self.kv_cache_spec) is FullAttentionSpec:
                 self.new_block_ids.extend(b.block_id for b in allocated_blocks)
 
-    def allocate_new_blocks(self, request_id: str, num_tokens: int, num_tokens_main_model: int) -> list[KVCacheBlock]:
+
+    def allocate_new_blocks(self, request_id: str,
+                            num_tokens: int, num_tokens_main_model: int) -> list[KVCacheBlock]:
         """
         Allocate new blocks for the request to give it at least `num_tokens`
         token slots.
@@ -139,7 +149,8 @@ class CompressAttentionManager(FullAttentionManager):
         if num_new_blocks <= 0:
             return []
         else:
-            new_blocks = self.block_pool.get_new_blocks(num_new_blocks)
+            new_blocks = self.block_pool.get_new_blocks(
+                num_new_blocks)
             req_blocks.extend(new_blocks)
             return new_blocks
 
@@ -174,7 +185,9 @@ class CompressAttentionManager(FullAttentionManager):
         # ), (
         #     "CompressAttentionManager can only be used for compressor attention groups"
         # )
-        computed_blocks: tuple[list[KVCacheBlock], ...] = tuple([] for _ in range(len(kv_cache_group_ids)))
+        computed_blocks: tuple[list[KVCacheBlock], ...] = tuple(
+            [] for _ in range(len(kv_cache_group_ids))
+        )
         block_size = kv_cache_spec.block_size
         if dcp_world_size * pcp_world_size > 1:
             block_size *= dcp_world_size * pcp_world_size
@@ -183,7 +196,9 @@ class CompressAttentionManager(FullAttentionManager):
             # block_hashes is a chain of block hashes. If a block hash is not
             # in the cached_block_hash_to_id, the following block hashes are
             # not computed yet for sure.
-            if cached_block := block_pool.get_cached_block(block_hash, kv_cache_group_ids):
+            if cached_block := block_pool.get_cached_block(
+                block_hash, kv_cache_group_ids
+            ):
                 for computed, cached in zip(computed_blocks, cached_block):
                     computed.append(cached)
             else:
@@ -204,9 +219,22 @@ class CompressAttentionManager(FullAttentionManager):
         return computed_blocks
 
 
-def get_manager_for_kv_cache_spec(kv_cache_spec: KVCacheSpec, **kwargs) -> SingleTypeKVCacheManager:
+def get_manager_for_kv_cache_spec(kv_cache_spec: KVCacheSpec,
+                                  **kwargs) -> SingleTypeKVCacheManager:
+    spec_manager_map.update({
+        Compress4AttentionSpec: CompressAttentionManager,
+        Compress128AttentionSpec: CompressAttentionManager,
+        SWAAttentionSpec: SlidingWindowManager,
+        C4AttnKVStateSpec: SlidingWindowManager,
+        C4AttnScoreStateSpec: SlidingWindowManager,
+        C128AttnKVStateSpec: SlidingWindowManager,
+        C128AttnScoreStateSpec: SlidingWindowManager,
+        C4IndexerKVStateSpec: SlidingWindowManager,
+        C4IndexerScoreStateSpec: SlidingWindowManager,
+        C4IndexerSpec: CompressAttentionManager
+    })
+    # TODO(qcs): remove the unused classes
+    spec_manager_map[MLAAttentionSpec] = CompressAttentionManager
     manager_class = spec_manager_map[type(kv_cache_spec)]
-    if isinstance(kv_cache_spec, MLAAttentionSpec) and kv_cache_spec.compress_ratio > 1:
-        manager_class = CompressAttentionManager
     manager = manager_class(kv_cache_spec, **kwargs)
     return manager

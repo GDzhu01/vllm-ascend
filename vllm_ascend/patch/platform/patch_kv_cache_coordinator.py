@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM projectx
 import sys
-from math import lcm
+from collections.abc import Sequence
 
 import vllm
 from vllm.v1.core.block_pool import BlockPool
-from vllm.v1.core.kv_cache_coordinator import (
-    HybridKVCacheCoordinator,
-    KVCacheCoordinator,
-)
+from vllm.v1.core.kv_cache_coordinator import (KVCacheCoordinator,
+                                               KVCacheCoordinatorNoPrefixCache,
+                                               UnitaryKVCacheCoordinator,
+                                               HybridKVCacheCoordinator,
+                                               )
+from vllm.v1.core.single_type_kv_cache_manager import SingleTypeKVCacheManager
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
 from vllm.v1.core.kv_cache_utils import (
     BlockHash,
@@ -16,12 +18,11 @@ from vllm.v1.core.kv_cache_utils import (
     BlockHashListWithBlockSize,
     KVCacheBlock,
 )
-from vllm.v1.core.single_type_kv_cache_manager import SingleTypeKVCacheManager
-from vllm.v1.kv_cache_interface import FullAttentionSpec, KVCacheConfig, KVCacheSpec
+from vllm.v1.kv_cache_interface import KVCacheConfig, KVCacheSpec, FullAttentionSpec
 
-from vllm_ascend.core.single_type_kv_cache_manager import get_manager_for_kv_cache_spec
-
-USE_MULTI_GROUPS_KV_CACHE = True
+from vllm_ascend.core.single_type_kv_cache_manager import \
+    get_manager_for_kv_cache_spec
+from math import lcm
 
 
 class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
@@ -59,11 +60,13 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
         )
 
         # KV cache group indices that get the EAGLE last-block drop.
-        self.eagle_group_ids: set[int] = {i for i, g in enumerate(kv_cache_config.kv_cache_groups) if g.is_eagle_group}
+        self.eagle_group_ids: set[int] = {
+            i for i, g in enumerate(kv_cache_config.kv_cache_groups) if g.is_eagle_group
+        }
         # Conservatively fall back to flag all groups when no group is flagged.
         if use_eagle and not self.eagle_group_ids:
             self.eagle_group_ids = set(range(len(kv_cache_config.kv_cache_groups)))
-
+        
         self.single_type_managers = tuple(
             get_manager_for_kv_cache_spec(
                 kv_cache_spec=kv_cache_group.kv_cache_spec,
@@ -82,9 +85,10 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
         # can be a multiple of hash_block_size.
         self.hash_block_size = hash_block_size
         if enable_caching:
-            assert all(g.kv_cache_spec.block_size % hash_block_size == 0 for g in kv_cache_config.kv_cache_groups), (
-                "block_size must be divisible by hash_block_size"
-            )
+            assert all(
+                g.kv_cache_spec.block_size % hash_block_size == 0
+                for g in kv_cache_config.kv_cache_groups
+            ), "block_size must be divisible by hash_block_size"
         assert dcp_world_size == 1, "DCP not support hybrid attn now."
         assert pcp_world_size == 1, "PCP not support hybrid attn now."
         self.verify_and_split_kv_cache_groups()
@@ -96,7 +100,9 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
         Groups KV cache groups by their spec type for efficient batch processing
         during cache hit lookup.
         """
-        attention_groups: list[tuple[KVCacheSpec, list[int], type[SingleTypeKVCacheManager]]] = []
+        attention_groups: list[
+            tuple[KVCacheSpec, list[int], type[SingleTypeKVCacheManager]]
+        ] = []
 
         for i, g in enumerate(self.kv_cache_config.kv_cache_groups):
             manager_cls = self.single_type_managers[i].__class__
@@ -105,13 +111,17 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
             # Try to find an existing group with the same spec
             for existing_spec, group_ids, existing_cls in attention_groups:
                 if existing_spec == spec:
-                    assert manager_cls is existing_cls, "Expected same manager class for identical KV cache specs."
+                    assert manager_cls is existing_cls, (
+                        "Expected same manager class for identical KV cache specs."
+                    )
                     group_ids.append(i)
                     break
             else:
                 attention_groups.append((spec, [i], manager_cls))
 
-        assert len(attention_groups) > 1, "HybridKVCacheCoordinator requires at least two attention groups."
+        assert len(attention_groups) > 1, (
+            "HybridKVCacheCoordinator requires at least two attention groups."
+        )
 
         # Put full attention first: its efficient left-to-right scan provides
         # a tighter initial bound, reducing work for subsequent groups.
@@ -133,8 +143,10 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
         # to make sure the cache hit length is a multiple of the block size of
         # each attention type. Requiring this because we don't support partial
         # block cache hit yet.
-        # NOTE: use 16k as the alignment tokens for model with compress ratio
-        block_sizes = [spec.block_size * getattr(spec, "compress_ratio", 1) for spec, _, _ in self.attention_groups]
+        # NOTE: use 16k as the alinment tokens for model with compress ratio
+        block_sizes = [
+            spec.block_size * getattr(spec, "compress_ratio", 1) for spec, _, _ in self.attention_groups
+            ]
         self.lcm_block_size = lcm(*block_sizes)
 
     def find_longest_cache_hit(
@@ -163,7 +175,9 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
         def _get_block_hashes(kv_cache_spec: KVCacheSpec) -> BlockHashList:
             if kv_cache_spec.block_size == self.hash_block_size:
                 return block_hashes
-            return BlockHashListWithBlockSize(block_hashes, self.hash_block_size, kv_cache_spec.block_size)
+            return BlockHashListWithBlockSize(
+                block_hashes, self.hash_block_size, kv_cache_spec.block_size
+            )
 
         num_groups = len(self.kv_cache_config.kv_cache_groups)
         hit_length = max_cache_hit_length
@@ -189,15 +203,21 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
                     # Full attention is downward-closed: we only need to look
                     # up cached blocks once; on subsequent iterations just trim
                     # to the (reduced) current hit length.
-                    curr_hit_length = curr_hit_length // spec.block_size * spec.block_size
+                    curr_hit_length = (
+                        curr_hit_length // spec.block_size * spec.block_size
+                    )
                     continue
 
-                use_eagle = idx in self.eagle_attn_group_indices and idx not in eagle_verified
+                use_eagle = (
+                    idx in self.eagle_attn_group_indices and idx not in eagle_verified
+                )
 
                 _max_length = curr_hit_length
                 if use_eagle:
                     # Eagle needs to match one more block and then pop the last.
-                    _max_length = min(curr_hit_length + spec.block_size, max_cache_hit_length)
+                    _max_length = min(
+                        curr_hit_length + spec.block_size, max_cache_hit_length
+                    )
                 hit_blocks = manager_cls.find_longest_cache_hit(
                     block_hashes=_get_block_hashes(spec),
                     max_length=_max_length,
@@ -233,13 +253,14 @@ class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
                 if (blks := hit_blocks_by_group[group_id]) is not None:
                     del blks[num_blocks:]
 
-        return tuple(blocks if blocks is not None else [] for blocks in hit_blocks_by_group), hit_length
+        return tuple(
+            blocks if blocks is not None else [] for blocks in hit_blocks_by_group
+        ), hit_length
 
 
 def get_kv_cache_coordinator(
     kv_cache_config: KVCacheConfig,
     max_model_len: int,
-    max_num_batched_tokens: int,
     use_eagle: bool,
     enable_caching: bool,
     enable_kv_cache_events: bool,
@@ -263,7 +284,7 @@ def get_kv_cache_coordinator(
     )
 
 
-vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordinator  # type: ignore[attr-defined]
+vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordinator
 
 # `kv_cache_manager` imports `get_kv_cache_coordinator` with
 # `from ... import ...`, so if it was loaded before this patch runs
@@ -271,4 +292,4 @@ vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordi
 # old function object. Update that cached binding as well.
 _kv_cache_manager = sys.modules.get("vllm.v1.core.kv_cache_manager")
 if _kv_cache_manager is not None:
-    _kv_cache_manager.get_kv_cache_coordinator = get_kv_cache_coordinator  # type: ignore[attr-defined]
+    _kv_cache_manager.get_kv_cache_coordinator = get_kv_cache_coordinator

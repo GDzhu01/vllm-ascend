@@ -1,17 +1,20 @@
 import torch
+
 import vllm
-from vllm.config import VllmConfig, get_current_vllm_config
-from vllm.config.cache import CacheConfig
+from vllm.config import get_current_vllm_config
 from vllm.model_executor.layers.deepseek_compressor import CompressorStateCache
-from vllm.model_executor.layers.deepseek_v4_attention import DeepseekV4IndexerCache
-from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
 from vllm.v1.kv_cache_interface import (
     KVCacheSpec,
     SlidingWindowMLASpec,
 )
-
-from vllm_ascend.attention.dsa_v1 import AscendDSABackend
+from vllm.model_executor.models.deepseek_v2 import DeepseekV32IndexerCache
+from vllm.config.cache import CacheConfig
+from typing import TYPE_CHECKING
 from vllm_ascend.patch.platform.patch_kv_cache_interface import AscendMLAAttentionSpec
+from vllm.v1.attention.backends.mla.sparse_swa import SVFSWACache
+
+from vllm.config import VllmConfig
+from vllm_ascend.attention.dsa_v1 import AscendDSABackend
 
 
 class AscendCompressorStateCache(CompressorStateCache):
@@ -38,18 +41,26 @@ class AscendCompressorStateCache(CompressorStateCache):
         self.compress_ratio = compress_ratio
         coff = 1 + (compress_ratio == 4)
         self.sliding_window = coff * compress_ratio
+        # Block size is constrained by tensor sharing between compressor states
+        # and KV blocks. Since compressor states share the same physical tensor
+        # as KV blocks, they must use the same page size.
+        # The KV block shape [256//4, head_dim] = [64, 584] determines:
+        # - C4 compressor block shape [4, 2*512*2*4] -> block_size = 4
+        # - C128 compressor block shape [8, 512*2*4] -> block_size = 8
+
         self.block_size = block_size
 
+
     def get_kv_cache_spec(self, vllm_config) -> KVCacheSpec:
-        page_size_padded = 16640 if self.state_dim == 2 * 256 and self.compress_ratio == 4 else 131072
+        page_size_padded = 16640 if self.state_dim == 2*256 and self.compress_ratio == 4 else 131072
         return SlidingWindowMLASpec(  # only has one vector instead of K + V
             block_size=self.block_size,
             num_kv_heads=1,
             head_size=self.state_dim,
             dtype=self.dtype,
             sliding_window=self.sliding_window,
-            alignment=None,  # NOTE: FlashMLA requires 576B alignment
-            page_size_padded=page_size_padded,
+            alignment=576,  # NOTE: FlashMLA requires 576B alignment
+            page_size_padded=page_size_padded
         )
 
     def forward(self): ...
@@ -58,7 +69,7 @@ class AscendCompressorStateCache(CompressorStateCache):
         return AscendDSABackend
 
 
-class AscendDeepseekV4IndexerCache(DeepseekV4IndexerCache):
+class AscendDeepseekV32IndexerCache(DeepseekV32IndexerCache):
     def __init__(
         self,
         head_dim: int,
@@ -69,15 +80,19 @@ class AscendDeepseekV4IndexerCache(DeepseekV4IndexerCache):
     ):
         super().__init__(head_dim, dtype, prefix, cache_config, compress_ratio)
 
+
     def get_kv_cache_spec(self, vllm_config: VllmConfig) -> KVCacheSpec:
         return AscendMLAAttentionSpec(  # Only has one vector instead of K + V
             block_size=128,
             num_kv_heads=1,
             head_size=self.head_dim,
             dtype=self.dtype,
-            model_version="deepseek_v4",
+            # TODO(zyj): refactor this hard code, take dsv32 into account
+            model_version="svf",
             compress_ratio=self.compress_ratio,
             cache_dtype_str=self.cache_config.cache_dtype,
+            # TODO(zyj): refactor this magic number
+            # page_size_padded=33280,
             scale_dim=1 if self.head_dim == 128 else 0,
             scale_dtype=torch.float16,
         )
@@ -88,7 +103,7 @@ class AscendDeepseekV4IndexerCache(DeepseekV4IndexerCache):
         return AscendDSABackend
 
 
-class AscendDeepseekV4SWACache(DeepseekV4SWACache):
+class AscendSVFSWACache(SVFSWACache):
     def __init__(
         self,
         head_dim: int,
@@ -97,8 +112,7 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
         prefix: str,
         cache_config: CacheConfig,
     ):
-        super().__init__(head_dim, window_size, torch.uint8, prefix, cache_config)
-        self.dtype = dtype
+        super().__init__(head_dim, window_size, dtype, prefix, cache_config)
 
         # Block size is constrained by tensor sharing between SWA and C4A KV blocks.
         # Since both block types share the same physical tensor, they must use the
@@ -116,8 +130,8 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
             dtype=self.dtype,
             sliding_window=self.window_size,
             cache_dtype_str=self.cache_config.cache_dtype,
-            model_version="deepseek_v4",
-            alignment=None,  # NOTE: FlashMLA requires 576B alignment
+            model_version="svf",
+            alignment=0,  # NOTE: FlashMLA requires 576B alignment
         )
 
     def forward(self): ...
@@ -125,7 +139,7 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
     def get_attn_backend(self):
         return AscendDSABackend
 
-
 vllm.model_executor.layers.deepseek_compressor.CompressorStateCache = AscendCompressorStateCache
-vllm.model_executor.layers.deepseek_v4_attention.DeepseekV4IndexerCache = AscendDeepseekV4IndexerCache
-vllm.v1.attention.backends.mla.sparse_swa.DeepseekV4SWACache = AscendDeepseekV4SWACache
+vllm.model_executor.models.deepseek_v2.DeepseekV32IndexerCache = AscendDeepseekV32IndexerCache
+vllm.v1.attention.backends.mla.sparse_swa.SVFSWACache = AscendSVFSWACache
+

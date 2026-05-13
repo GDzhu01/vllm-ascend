@@ -16,6 +16,7 @@ T = TypeVar("T", bound=AttentionMetadata)
 
 
 class DSAAttentionImpl(AttentionImpl[T], Generic[T]):
+
     @abstractmethod
     def __init__(
         self,

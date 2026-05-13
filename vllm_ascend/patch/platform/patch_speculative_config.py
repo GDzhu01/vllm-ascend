@@ -4,12 +4,15 @@ from vllm.config.speculative import SpeculativeConfig
 from vllm.utils.import_utils import LazyLoader
 
 if TYPE_CHECKING:
-    import vllm.model_executor.layers.quantization as me_quant
     from transformers import PretrainedConfig
+
+    import vllm.model_executor.layers.quantization as me_quant
 else:
     PretrainedConfig = Any
 
-    me_quant = LazyLoader("model_executor", globals(), "vllm.model_executor.layers.quantization")
+    me_quant = LazyLoader(
+        "model_executor", globals(), "vllm.model_executor.layers.quantization"
+    )
 
 
 def hf_config_override(hf_config: PretrainedConfig) -> PretrainedConfig:
@@ -22,12 +25,16 @@ def hf_config_override(hf_config: PretrainedConfig) -> PretrainedConfig:
             hf_config.update({"architectures": ["DeepSeekV4MTPModel"]})
         else:
             n_predict = getattr(hf_config, "num_nextn_predict_layers", None)
-            hf_config.update({"n_predict": n_predict, "architectures": ["DeepSeekMTPModel"]})
+            hf_config.update(
+                {"n_predict": n_predict, "architectures": ["DeepSeekMTPModel"]}
+            )
     if hf_config.model_type in ("pangu_ultra_moe"):
         hf_config.model_type = "pangu_ultra_moe_mtp"
     if hf_config.model_type == "pangu_ultra_moe_mtp":
         n_predict = getattr(hf_config, "num_nextn_predict_layers", None)
-        hf_config.update({"n_predict": n_predict, "architectures": ["OpenPanguMTPModel"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["OpenPanguMTPModel"]}
+        )
 
     if hf_config.architectures[0] == "MiMoForCausalLM":
         hf_config.model_type = "mimo_mtp"
@@ -76,7 +83,9 @@ def hf_config_override(hf_config: PretrainedConfig) -> PretrainedConfig:
         hf_config.model_type = "ernie_mtp"
     if hf_config.model_type == "ernie_mtp":
         n_predict = getattr(hf_config, "num_nextn_predict_layers", None)
-        hf_config.update({"n_predict": n_predict, "architectures": ["ErnieMTPModel"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["ErnieMTPModel"]}
+        )
 
     if (
         hf_config.model_type == "nemotron_h"
@@ -87,19 +96,25 @@ def hf_config_override(hf_config: PretrainedConfig) -> PretrainedConfig:
         hf_config.model_type = "nemotron_h_mtp"
     if hf_config.model_type == "nemotron_h_mtp":
         n_predict = getattr(hf_config, "num_nextn_predict_layers", 1)
-        hf_config.update({"n_predict": n_predict, "architectures": ["NemotronHMTPModel"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["NemotronHMTPModel"]}
+        )
 
     if hf_config.model_type == "qwen3_next":
         hf_config.model_type = "qwen3_next_mtp"
     if hf_config.model_type == "qwen3_next_mtp":
         n_predict = getattr(hf_config, "num_nextn_predict_layers", None)
-        hf_config.update({"n_predict": n_predict, "architectures": ["Qwen3NextMTP"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["Qwen3NextMTP"]}
+        )
 
     if hf_config.model_type == "exaone_moe":
         hf_config.model_type = "exaone_moe_mtp"
     if hf_config.model_type == "exaone_moe_mtp":
         n_predict = getattr(hf_config, "num_nextn_predict_layers", None)
-        hf_config.update({"n_predict": n_predict, "architectures": ["ExaoneMoeMTP"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["ExaoneMoeMTP"]}
+        )
 
     if hf_config.model_type in ("qwen3_5", "qwen3_5_moe"):
         is_moe = hf_config.model_type == "qwen3_5_moe"
@@ -114,7 +129,9 @@ def hf_config_override(hf_config: PretrainedConfig) -> PretrainedConfig:
     if hf_config.model_type == "longcat_flash":
         hf_config.model_type = "longcat_flash_mtp"
         n_predict = getattr(hf_config, "num_nextn_predict_layers", 1)
-        hf_config.update({"n_predict": n_predict, "architectures": ["LongCatFlashMTPModel"]})
+        hf_config.update(
+            {"n_predict": n_predict, "architectures": ["LongCatFlashMTPModel"]}
+        )
 
     if hf_config.model_type == "step3p5":
         hf_config.model_type = "step3p5_mtp"
