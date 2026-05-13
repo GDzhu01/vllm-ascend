@@ -43,6 +43,8 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
        and is therefore saved in kv_cache[3].
     """
 
+    scale_dim: int = 0
+    scale_dtype: torch.dtype = torch.int8
     sparse_head_dim: tuple[int, ...] | None = None
     cache_sparse_c8: bool = False
     c8_k_cache_dtype: torch.dtype = torch.int8
@@ -68,10 +70,10 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
             )
             return k_pe_nope_bytes + indexer_k_bytes + indexer_k_scale_bytes
 
-        return self.block_size * self.num_kv_heads * self.head_size * get_dtype_size(self.dtype)
+        return self.block_size * self.num_kv_heads * (self.head_size * get_dtype_size(self.dtype) + self.scale_dim * get_dtype_size(self.scale_dtype))
 
     @property
-    def sparse_kv_cache_ratio(self) -> tuple[float, float, float, float | None]:d
+    def sparse_kv_cache_ratio(self) -> tuple[float, float, float, float | None]:
         """
         Compute the relative byte share of each KV cache entry.
 
@@ -131,30 +133,27 @@ class AscendMLAAttentionSpec(MLAAttentionSpec):
         assert len(cache_dtype_str_set) == 1, (
             "All attention layers in the same KV cache group must use the same quantization method."
         )
-        cache_sparse_c8_set = set(spec.cache_sparse_c8 for spec in specs)
-        assert len(cache_sparse_c8_set) == 1, (
-            "All attention layers in the same KV cache group must use the same sparse C8 setting."
-        )
         return cls(
             block_size=specs[0].block_size,
             num_kv_heads=specs[0].num_kv_heads,
             head_size=specs[0].head_size,
+            scale_dim=specs[0].scale_dim,
             sparse_head_dim=specs[0].sparse_head_dim,
             dtype=specs[0].dtype,
             cache_dtype_str=cache_dtype_str_set.pop(),
-            cache_sparse_c8=cache_sparse_c8_set.pop(),
+            cache_sparse_c8=specs[0].cache_sparse_c8,
         )
 
 
 def _init_mla_cache_fields(spec: MLAAttentionSpec | SlidingWindowMLASpec):
     """Shared MLA cache init logic for quantiztion format across different models."""
     FP8_DTYPE = "fp8_ds_mla"
-    MODEL_VERSIONS = ["v32", "svf"]
+    MODEL_VERSIONS = ["v32", "deepseek_v4"]
     if spec.cache_dtype_str != FP8_DTYPE:
         return
     assert spec.model_version in MODEL_VERSIONS, "Invalid model version."
     assert (spec.model_version == "v32" and spec.compress_ratio == 1) or (
-        spec.model_version == "svf" and spec.compress_ratio in [0, 4, 128]
+        spec.model_version == "deepseek_v4" and spec.compress_ratio in [0, 4, 128]
     ), "Invalid compress ratio."
     if spec.compress_ratio > 1:
         assert spec.block_size % spec.compress_ratio == 0, (
@@ -163,7 +162,7 @@ def _init_mla_cache_fields(spec: MLAAttentionSpec | SlidingWindowMLASpec):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AscendSlidingWindowMLASpec(SlidingWindowSpec):
+class AscendSlidingWindowMLASpec(SlidingWindowMLASpec):
     """Sliding window attention with MLA cache format."""
 
     cache_dtype_str: str | None = None
@@ -219,5 +218,5 @@ class AscendSlidingWindowMLASpec(SlidingWindowSpec):
 
 
 vllm.v1.kv_cache_interface.MLAAttentionSpec = AscendMLAAttentionSpec
-vllm.v1.kv_cache_interface.MLAAttentionSpec = AscendSlidingWindowMLASpec
+vllm.v1.kv_cache_interface.SlidingWindowMLASpec = AscendSlidingWindowMLASpec
 vllm.model_executor.layers.attention.mla_attention.MLAAttentionSpec = AscendMLAAttentionSpec

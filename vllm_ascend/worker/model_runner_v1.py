@@ -3124,6 +3124,8 @@ class NPUModelRunner(GPUModelRunner):
             kv_cache_config: Configuration for the KV cache, including the KV
             cache size of each layer
         """
+        if torch.distributed.get_rank() == 0:
+            logger.info(f'{kv_cache_config=}')
         kv_cache_config = deepcopy(kv_cache_config)
         self.kv_cache_config = kv_cache_config
         self._mamba_copy_bufs = None

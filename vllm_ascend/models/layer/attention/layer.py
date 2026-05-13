@@ -176,7 +176,7 @@ class DSAAttention(nn.Module, AttentionLayerBase):
             num_kv_heads=1,
             head_size=self.head_size,
             dtype=kv_cache_dtype,
-            model_version="svf",
+            model_version="deepseek_v4",
             compress_ratio=self.compress_ratio,
             cache_dtype_str=vllm_config.cache_config.cache_dtype,
         )

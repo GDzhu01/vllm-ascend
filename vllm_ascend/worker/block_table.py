@@ -310,21 +310,37 @@ class MultiGroupBlockTable:
             )
 
         # Use zip to pair block_sizes with kernel_sizes one-to-one
-        self.block_tables = [
-            BlockTable(
-                block_size,
-                max_num_reqs,
-                max_num_blocks_per_req,
-                max_num_batched_tokens,
-                pin_memory,
-                device,
-                kernel_size_list,
-                cp_kv_cache_interleave_size,
-                num_speculative_tokens,
-                kv_cache_group
-            )
-            for block_size, kernel_size_list, max_num_blocks_per_req in zip(block_sizes, kernel_sizes, max_num_blocks)
-        ]
+        if kv_cache_groups is not None:
+            self.block_tables = [
+                BlockTable(
+                    block_size,
+                    max_num_reqs,
+                    max_num_blocks_per_req,
+                    max_num_batched_tokens,
+                    pin_memory,
+                    device,
+                    kernel_size_list,
+                    cp_kv_cache_interleave_size,
+                    num_speculative_tokens,
+                    kv_cache_group
+                )
+                for block_size, kernel_size_list, max_num_blocks_per_req, kv_cache_group in zip(block_sizes, kernel_sizes, max_num_blocks, kv_cache_groups)
+            ]
+        else:
+            self.block_tables = [
+                BlockTable(
+                    block_size,
+                    max_num_reqs,
+                    max_num_blocks_per_req,
+                    max_num_batched_tokens,
+                    pin_memory,
+                    device,
+                    kernel_size_list,
+                    cp_kv_cache_interleave_size,
+                    num_speculative_tokens,
+                )
+                for block_size, kernel_size_list, max_num_blocks_per_req in zip(block_sizes, kernel_sizes, max_num_blocks)
+            ]
 
     def append_row(self, block_ids: tuple[list[int], ...], row_idx: int) -> None:
         for i, block_table in enumerate(self.block_tables):

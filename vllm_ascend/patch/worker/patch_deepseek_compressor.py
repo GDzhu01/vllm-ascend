@@ -7,7 +7,7 @@ from vllm.v1.kv_cache_interface import (
     KVCacheSpec,
     SlidingWindowMLASpec,
 )
-from vllm.model_executor.models.deepseek_v2 import DeepseekV32IndexerCache
+from vllm.model_executor.layers.deepseek_v4_attention import DeepseekV4IndexerCache
 from vllm.config.cache import CacheConfig
 from typing import TYPE_CHECKING
 from vllm_ascend.patch.platform.patch_kv_cache_interface import AscendMLAAttentionSpec
@@ -59,7 +59,7 @@ class AscendCompressorStateCache(CompressorStateCache):
             head_size=self.state_dim,
             dtype=self.dtype,
             sliding_window=self.sliding_window,
-            alignment=576,  # NOTE: FlashMLA requires 576B alignment
+            alignment=None,  # NOTE: FlashMLA requires 576B alignment
             page_size_padded=page_size_padded
         )
 
@@ -69,7 +69,7 @@ class AscendCompressorStateCache(CompressorStateCache):
         return AscendDSABackend
 
 
-class AscendDeepseekV32IndexerCache(DeepseekV32IndexerCache):
+class AscendDeepseekV4IndexerCache(DeepseekV4IndexerCache):
     def __init__(
         self,
         head_dim: int,
@@ -88,7 +88,7 @@ class AscendDeepseekV32IndexerCache(DeepseekV32IndexerCache):
             head_size=self.head_dim,
             dtype=self.dtype,
             # TODO(zyj): refactor this hard code, take dsv32 into account
-            model_version="svf",
+            model_version="deepseek_v4",
             compress_ratio=self.compress_ratio,
             cache_dtype_str=self.cache_config.cache_dtype,
             # TODO(zyj): refactor this magic number
@@ -131,8 +131,8 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
             dtype=self.dtype,
             sliding_window=self.window_size,
             cache_dtype_str=self.cache_config.cache_dtype,
-            model_version="svf",
-            alignment=0,  # NOTE: FlashMLA requires 576B alignment
+            model_version="deepseek_v4",
+            alignment=None,  # NOTE: FlashMLA requires 576B alignment
         )
 
     def forward(self): ...
@@ -141,5 +141,5 @@ class AscendDeepseekV4SWACache(DeepseekV4SWACache):
         return AscendDSABackend
 
 vllm.model_executor.layers.deepseek_compressor.CompressorStateCache = AscendCompressorStateCache
-vllm.model_executor.models.deepseek_v2.DeepseekV32IndexerCache = AscendDeepseekV32IndexerCache
+vllm.model_executor.layers.deepseek_v4_attention.DeepseekV4IndexerCache = AscendDeepseekV4IndexerCache
 vllm.v1.attention.backends.mla.sparse_swa.DeepseekV4SWACache = AscendDeepseekV4SWACache

@@ -1,9 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Ascend project
+import copy
+import hashlib
 import math
+import os
+from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from dataclasses import dataclass, replace
+from functools import partial
+from typing import Any, NewType, TypeAlias, cast, overload
+
+from vllm import envs
+from vllm.config import VllmConfig
+from vllm.logger import init_logger
+from vllm.utils.hashing import sha256_cbor, xxhash_cbor
+from vllm.utils.math_utils import cdiv, round_up
+from vllm.utils.mem_utils import format_gib
 
 import vllm.v1.core.kv_cache_utils
-from vllm.config import VllmConfig
 from vllm.v1.kv_cache_interface import (
     ChunkedLocalAttentionSpec,
     FullAttentionSpec,
@@ -17,6 +31,9 @@ from vllm.v1.kv_cache_interface import (
     SlidingWindowSpec,
     UniformTypeKVCacheSpecs,
 )
+from vllm.v1.core.kv_cache_utils import _approximate_gcd
+from vllm.v1.request import Request
+from vllm.v1.utils import tensor_data
 
 _orig_resolve_kv_cache_block_sizes = vllm.v1.core.kv_cache_utils.resolve_kv_cache_block_sizes
 
@@ -208,6 +225,8 @@ def _get_kv_cache_groups_uniform_groups(
 
 
 vllm.v1.core.kv_cache_utils.resolve_kv_cache_block_sizes = _ascend_resolve_kv_cache_block_sizes
+vllm.v1.core.kv_cache_utils.group_and_unify_kv_cache_specs = group_and_unify_kv_cache_specs
+vllm.v1.core.kv_cache_utils._get_kv_cache_groups_uniform_groups = _get_kv_cache_groups_uniform_groups
 
 # Also patch the reference used by engine/core.py which imports the function directly.
 import vllm.v1.engine.core  # noqa: E402
