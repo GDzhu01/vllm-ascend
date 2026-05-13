@@ -122,12 +122,11 @@ class DeepSeekMultiTokenPredictorLayer(nn.Module):
         inputs_embeds = torch.where(
             positions.unsqueeze(-1) == 0, 0, inputs_embeds)
         inputs_embeds = self.enorm(inputs_embeds)
+        previous_hidden_states = previous_hidden_states.view(-1, self.hc_mult, self.config.hidden_size)
         previous_hidden_states = self.hnorm(previous_hidden_states)
 
-        hidden_states = (self.e_proj(inputs_embeds) +
+        hidden_states = (self.e_proj(inputs_embeds).unsqueeze(-2) +
                          self.h_proj(previous_hidden_states))
-
-        hidden_states = hidden_states.unsqueeze(1).repeat(1, self.hc_mult, 1)
 
         hidden_states, residual = self.mtp_block(positions=positions,
                                                  hidden_states=hidden_states,
