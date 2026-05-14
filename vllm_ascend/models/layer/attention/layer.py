@@ -21,7 +21,7 @@ from vllm.v1.kv_cache_interface import KVCacheSpec, MLAAttentionSpec
 from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
 
 from vllm_ascend.attention.abstract import DSAAttentionImpl
-from vllm_ascend.patch.platform.patch_selector import get_attn_backend
+from vllm_ascend.attention.dsa_v1 import AscendDSABackend
 
 logger = init_logger(__name__)
 
@@ -79,26 +79,13 @@ class DSAAttention(nn.Module, AttentionLayerBase):
 
         if cache_config is not None:
             kv_cache_dtype = cache_config.cache_dtype
-            block_size = cache_config.block_size
-            calculate_kv_scales = cache_config.calculate_kv_scales
         else:
             kv_cache_dtype = "auto"
-            block_size = 16
-            calculate_kv_scales = False
 
         # Initialize KV cache quantization attributes
         _init_kv_cache_quant(self, quant_config, prefix)
 
-        dtype = torch.get_default_dtype()
-        self.attn_backend = get_attn_backend(
-            self.head_size,
-            dtype,
-            kv_cache_dtype,
-            block_size,
-            use_mla=True,
-            use_sparse=False,
-            use_compress=True,
-        )
+        self.attn_backend = AscendDSABackend
 
         # NOTE(zxr): vllm_is_batch_invariant is delete during updating to v0.20.1
         if (cache_config is not None and cache_config.enable_prefix_caching
