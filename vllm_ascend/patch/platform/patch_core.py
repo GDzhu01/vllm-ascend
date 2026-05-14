@@ -7,9 +7,8 @@ from vllm.logger import logger
 from vllm.config import VllmConfig
 from vllm.v1.kv_cache_interface import KVCacheConfig
 
-from vllm.v1.core.kv_cache_utils import generate_scheduler_kv_cache_config
+from vllm.v1.core.kv_cache_utils import generate_scheduler_kv_cache_config, get_kv_cache_configs
 from vllm_ascend.patch.platform.patch_kv_cache_coordinator import USE_MULTI_GROUPS_KV_CACHE
-from vllm_ascend.patch.platform.patch_kv_cache_utils import get_kv_cache_configs_with_multi_groups as get_kv_cache_configs
 from vllm.v1.engine.core import EngineCoreProc
 from vllm.tracing import instrument
 import vllm.envs as envs
