@@ -132,8 +132,8 @@ class DeepSeekMultiTokenPredictorLayer(nn.Module):
                                                  hidden_states=hidden_states,
                                                  residual=None)
 
-        hidden_states = self.hc_head(hidden_states, self.hc_head_fn,
-                                     self.hc_head_scale, self.hc_head_base)
+        # hidden_states = self.hc_head(hidden_states, self.hc_head_fn,
+        #                              self.hc_head_scale, self.hc_head_base)
 
         return hidden_states
 
@@ -200,6 +200,12 @@ class DeepSeekMultiTokenPredictor(nn.Module):
     ) -> torch.Tensor:
         current_step_idx = spec_step_idx % self.num_mtp_layers
         mtp_layer = self.layers[str(current_step_idx)]
+        hidden_states = hidden_states.view(-1, mtp_layer.hc_mult,
+                                           mtp_layer.config.hidden_size)
+        hidden_states = mtp_layer.hc_head(hidden_states,
+                                          mtp_layer.hc_head_fn,
+                                          mtp_layer.hc_head_scale,
+                                          mtp_layer.hc_head_base)
         logits = self.logits_processor(mtp_layer.shared_head.head,
                                        mtp_layer.shared_head(hidden_states))
         return logits

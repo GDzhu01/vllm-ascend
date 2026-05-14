@@ -729,7 +729,6 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                     block_size=self.draft_attn_groups[0].kv_cache_spec.block_size)
         attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model(), **extra_attn_metadata_args)
         attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
-        attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model())
 
         if hasattr(attn_metadata, "causal") and not attn_metadata.causal:
             attn_metadata.attn_mask = None
@@ -1043,7 +1042,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             # copy inputs to buffer for cudagraph
             self.input_ids[:batch_size] = input_ids
             self._set_positions(batch_size, clamped_positions)
-            self.hidden_states[:batch_size] = hidden_states
+            self.hidden_states[:batch_size] = hidden_states.view(batch_size, -1)
             if self.supports_mm_inputs:
                 self.inputs_embeds[:batch_size] = self.model.embed_input_ids(input_ids)
 
@@ -1215,7 +1214,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 target_positions = target_positions[0]
 
             self._set_positions(num_tokens, target_positions)
-            self.hidden_states[:num_tokens] = target_hidden_states
+            self.hidden_states[:num_tokens] = target_hidden_states.view(num_tokens, -1)
 
             return num_tokens, token_indices_to_sample, cad, (query_lens_d, ori_token_indices_to_sample)
         else:
