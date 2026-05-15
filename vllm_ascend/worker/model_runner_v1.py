@@ -383,8 +383,9 @@ class NPUModelRunner(GPUModelRunner):
         # spec decode mode. Recorded in _prepare_inputs, synchronized
         # in _build_attention_metadata. Created once, reused each iteration.
         # Only backends that consume CPU seq_lens (AscendAttentionBackend,
-        # AscendMLABackend) need this; others (SFA, GDN, etc.) do not.
-        self._needs_seq_lens_cpu_sync = issubclass(
+        # AscendMLABackend, and DSV4 compressed attention metadata) need this;
+        # others (SFA, GDN, etc.) do not.
+        self._needs_seq_lens_cpu_sync = self.use_compress or issubclass(
             self.attn_backend, (AscendAttentionBackend, AscendMLABackend)
         )
         self._seq_lens_cpu_event: torch.npu.Event | None = None
@@ -989,8 +990,36 @@ class NPUModelRunner(GPUModelRunner):
         else:
             self._seq_lens_cpu_event_pending = False
 
+        num_computed_tokens_for_compress = (
+            self.input_batch.num_computed_tokens_cpu[:num_reqs]
+        )
+        if (
+            self.use_compress
+            and self.use_async_spec_decode
+            and self.valid_sampled_token_count_gpu is not None
+            and prev_req_id_to_index
+        ):
+            # Async spec decode keeps the CPU counter optimistic until after
+            # target forward is launched. DSV4 compressed KV slot mapping is
+            # CPU-built today, so use the GPU-corrected counter before
+            # computing compressed cache positions.
+            if (
+                self._seq_lens_cpu_event_pending
+                and self._seq_lens_cpu_event is not None
+            ):
+                self._seq_lens_cpu_event.synchronize()
+                self._seq_lens_cpu_event_pending = False
+                num_computed_tokens_for_compress = (
+                    self.optimistic_seq_lens_cpu[:num_reqs].numpy()
+                    - num_scheduled_tokens[:num_reqs]
+                )
+            else:
+                num_computed_tokens_for_compress = (
+                    self.num_computed_tokens[:num_reqs].to("cpu").numpy()
+                )
+
         positions_compressed_list, req_indices_compressed_list, num_scheduled_tokens_compressed_list = get_compressed_pos_and_indices(
-            self.input_batch.num_computed_tokens_cpu[:num_reqs],
+            num_computed_tokens_for_compress,
             num_scheduled_tokens[:num_reqs], self.arange_np[:num_reqs],
             self.use_compress,
             self.kv_cache_config.kv_cache_groups)
