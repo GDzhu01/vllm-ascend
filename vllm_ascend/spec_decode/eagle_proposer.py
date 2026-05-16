@@ -728,7 +728,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                     common_ratio_to_sas_metadata=dict(),
                     block_size=self.draft_attn_groups[0].kv_cache_spec.block_size)
         attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model(), **extra_attn_metadata_args)
-        attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
+        # attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
 
         if hasattr(attn_metadata, "causal") and not attn_metadata.causal:
             attn_metadata.attn_mask = None
@@ -824,7 +824,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                                 mtp_slot_mapping,
                                 attn_group=attn_group,
                             )
-                            attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
+                            # attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
                             for layer_name in self.attn_layer_names:
                                 per_layer_attn_metadata[layer_name] = attn_metadata
                         multi_steps_attn_metadata.append(per_layer_attn_metadata)
@@ -844,7 +844,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                             aclgraph_runtime_mode,
                             attn_group=attn_group,
                         )
-                        attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
+                        # attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
                         for layer_name in self.attn_layer_names:
                             per_layer_attn_metadata[layer_name] = attn_metadata
                     multi_steps_attn_metadata.append(per_layer_attn_metadata)
@@ -1453,7 +1453,7 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             # However, in vllm-ascend, the above value can be multiple of `kernel_block_size`,
             # which is not correct for computing `slot_mapping` below.
             block_size = self.kernel_block_size
-            if not isinstance(block_size, int):
+            if not isinstance(block_size, int) or self.use_compress:
                 block_size = 128
 
             # Compute the slot mapping.
@@ -1497,12 +1497,19 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                     common_ratio_to_sas_metadata=dict(),
                     block_size=self.draft_attn_groups[0].kv_cache_spec.block_size)
 
-        attn_metadata = attn_metadata_builder.build(
-            0,
-            common_attn_metadata,
-            self.runner.get_model(),
-            **extra_attn_metadata_args,
-            )
+        if self.use_compress:
+            attn_metadata = attn_metadata_builder.build_for_drafting(
+                draft_step,
+                common_attn_metadata,
+                **extra_attn_metadata_args,
+                )
+        else:
+            attn_metadata = attn_metadata_builder.build(
+                0,
+                common_attn_metadata,
+                self.runner.get_model(),
+                **extra_attn_metadata_args,
+                )
 
         if self.pcp_size * self.dcp_size > 1:
             if self.vllm_config.model_config.use_mla:
