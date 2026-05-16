@@ -154,8 +154,8 @@ class ComplexExpRotaryEmbedding(nn.Module):
                 dtype=torch.float32,
             )
             freqs = torch.einsum("i,j -> ij", t, inv_freq)
-            cos = freqs.cos().repeat_interleave(2, dim=-1).to(dtype)
-            sin = freqs.sin().repeat_interleave(2, dim=-1).to(dtype)
+            cos = freqs.cos().repeat_interleave(2, dim=-1)
+            sin = freqs.sin().repeat_interleave(2, dim=-1)
             cos = cos.to(current_platform.device_type)
             sin = sin.to(current_platform.device_type)
 
@@ -173,13 +173,13 @@ class ComplexExpRotaryEmbedding(nn.Module):
                                      1,
                                      1,
                                      rotary_dim,
-                                     dtype=dtype,
+                                     dtype=torch.float32,
                                      device=target_device)
                 buf_sin = torch.zeros(max_batch_size,
                                       1,
                                       1,
                                       rotary_dim,
-                                      dtype=dtype,
+                                      dtype=torch.float32,
                                       device=target_device)
                 _ROPE_STATE.runtime_buffer[config_key][grp] = (buf_cos,
                                                                buf_sin)
