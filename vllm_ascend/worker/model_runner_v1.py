@@ -2948,7 +2948,8 @@ class NPUModelRunner(GPUModelRunner):
             attn_metadata, _ = self._build_attention_metadata(
                 num_tokens=num_tokens_unpadded,
                 num_tokens_padded=num_tokens_padded,
-                num_reqs=num_reqs_padded,
+                num_reqs=num_reqs,
+                num_reqs_padded=num_reqs_padded,
                 max_query_len=max_query_len,
                 ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
                 for_cudagraph_capture=is_graph_capturing,
