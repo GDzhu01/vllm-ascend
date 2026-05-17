@@ -282,25 +282,21 @@
 #       Remove this patch once the vLLM fix is included in the supported vLLM
 #       version.
 #
-# ** 12. File: platform/patch_deepseek_v4_agentic.py**
+# ** 12. File: platform/patch_deepseek_v4_tool_call_parser.py**
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   1. `vllm.tokenizers.registry.TokenizerRegistry`
-#      `vllm.tool_parsers.ToolParserManager`
-#      `vllm.reasoning.ReasoningParserManager`
+#   1. `vllm.tool_parsers.deepseekv4_tool_parser.DeepSeekV4ToolParser`
 #    Why:
-#       The runtime vLLM version used by vllm-ascend does not yet contain the
-#       DeepSeek V4 tokenizer mode, DSML tool-call parser, or reasoning parser
-#       alias needed by agentic serving.
+#       Upstream vLLM now includes DeepSeek V4 tokenizer/renderer/reasoning
+#       registration, but its streaming tool-call delta parsing does not guarantee
+#       incremental `arguments` emission for long argument payloads.
 #    How:
-#       Backport the DeepSeek V4 prompt renderer/tokenizer wrapper and DSML
-#       tool parser, then register `deepseek_v4` with the tokenizer, tool
-#       parser, and reasoning parser registries.
+#       Monkey-patch `DeepSeekV4ToolParser` stream parsing to emit tool-call
+#       metadata in the first delta and stream argument fragments incrementally.
 #    Related PR (if no, explain why):
-#       Backported from local upstream vLLM commit
-#       e874f918281f3349904b3b5e7124c880d223721a.
+#       Upstream vLLM main behavior as of current runtime.
 #    Future Plan:
-#       Remove this patch once DeepSeek V4 agentic support is present in the
-#       runtime vLLM version used by vllm-ascend.
+#       Remove this patch if upstream streaming behavior is updated to satisfy the
+#       same DeepSeek DSML incrementality contract.
 #
 # * Worker Patch:
 # ===============
