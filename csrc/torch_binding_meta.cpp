@@ -126,6 +126,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> grouped_matmul_swiglu_quant(
     return {output, output_scale, output_offset};
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> grouped_matmul_swiglu_quant_weight_nz(
+    const at::Tensor &x, const at::Tensor &weight, const at::Tensor &weight_scale, const at::Tensor &x_scale,
+    const at::Tensor &group_list, const c10::optional<at::Tensor> &bias, const c10::optional<at::Tensor> &offset,
+    double swiglu_limit)
+{
+    return grouped_matmul_swiglu_quant(
+        x, weight, weight_scale, x_scale, group_list, bias, offset, swiglu_limit);
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> grouped_matmul_swiglu_quant_weight_nz_tensor_list_meta(
     const at::Tensor & x,
     const at::TensorList & weight,
@@ -1324,6 +1333,8 @@ TORCH_LIBRARY_IMPL_EXPAND(CONCAT(_C, _ascend), Meta, ops) {
     ops.impl("sgmv_expand", &vllm_ascend::meta::sgmv_expand_meta);
     // MLA preprocess
     ops.impl("mla_preprocess", &vllm_ascend::meta::mla_preprocess);
+    // grouped_matmul_swiglu_quant_weight_nz meta implementation
+    ops.impl("grouped_matmul_swiglu_quant_weight_nz", &vllm_ascend::meta::grouped_matmul_swiglu_quant_weight_nz);
     // grouped_matmul_swiglu_quant meta implementation
     ops.impl("grouped_matmul_swiglu_quant", &vllm_ascend::meta::grouped_matmul_swiglu_quant);
     // Grouped matmul swiglu quant weight nz tensor list

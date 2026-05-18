@@ -1984,6 +1984,13 @@ TORCH_LIBRARY_EXPAND(CONCAT(_C, _ascend), ops)
              static_cast<void (*)(const at::Tensor&)>(&vllm_ascend::device_print));
 
     ops.def(
+        "grouped_matmul_swiglu_quant_weight_nz(Tensor x, Tensor weight, Tensor weight_scale, Tensor x_scale,"
+        "                            Tensor group_list, *, Tensor? bias=None,"
+        "                            Tensor? offset=None, float swiglu_limit=1000000.0) ->"
+        "                            (Tensor output, Tensor output_scale, Tensor output_offset)");
+    ops.impl("grouped_matmul_swiglu_quant_weight_nz", torch::kPrivateUse1, &vllm_ascend::grouped_matmul_swiglu_quant_weight_nz);
+
+    ops.def(
         "grouped_matmul_swiglu_quant(Tensor x, Tensor weight, Tensor weight_scale, Tensor x_scale,"
         "                            Tensor group_list, *, Tensor? bias=None,"
         "                            Tensor? offset=None, float swiglu_limit=1000000.0) ->"
