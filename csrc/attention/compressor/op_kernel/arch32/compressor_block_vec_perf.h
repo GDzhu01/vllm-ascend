@@ -867,6 +867,24 @@ CompressorBlockVectorPerf<COMP>::SaveState(const LocalTensor<T> &srcLocal, const
     uint64_t srcBaseOffset = sliceInfo.dealedSeqCnt * coff_ * dDealSize;
 
     if constexpr (COMP::coff == COFF::OVERLAP) {
+        if (sliceInfo.dealTcSize > 1) {
+            uint32_t firstCopySeqCnt = constInfo_.cmpRatio - sliceInfo.headHolderSeqCnt;
+            if (firstCopySeqCnt > sliceInfo.validSeqCnt) {
+                firstCopySeqCnt = sliceInfo.validSeqCnt;
+            }
+
+            uint32_t startSeqIdx = sliceInfo.bStartPos + sliceInfo.sIdx;
+            uint32_t endSeqIdx = startSeqIdx + firstCopySeqCnt;
+            uint64_t leftSrcBaseOffset =
+                (sliceInfo.preValidSeqCnt + sliceInfo.preTailHolderSeqCnt + sliceInfo.headHolderSeqCnt) *
+                coff_ * dDealSize;
+            uint64_t rightSrcBaseOffset = sliceInfo.headHolderSeqCnt * coff_ * dDealSize + dDealSize;
+            WriteToCacheState(stateGm, blockTableGm, srcLocal[leftSrcBaseOffset], sliceInfo.bIdx, startSeqIdx,
+                              endSeqIdx, dStartIdx, dDealSize, stateIdx);
+            WriteToCacheState(stateGm, blockTableGm, srcLocal[rightSrcBaseOffset], sliceInfo.bIdx, startSeqIdx,
+                              endSeqIdx, dStartIdx + constInfo_.headDim, dDealSize, stateIdx);
+        }
+
         WriteToCacheState(stateGm, blockTableGm, srcLocal[srcBaseOffset], sliceInfo.bIdx, startSeqIdx, endSeqIdx,
                           dStartIdx, dDealSize, stateIdx);
         srcBaseOffset += dDealSize;
