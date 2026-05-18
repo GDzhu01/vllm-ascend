@@ -1,7 +1,7 @@
 import torch
 from torch.library import Library
 
-from vllm_ascend.utils import is_310p
+from .utils import is_310p, is_950
 
 # This file provides a template and registration utilities for writing "meta" implementations
 # of custom operators in Python for the vllm_ascend project.
