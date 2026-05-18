@@ -319,7 +319,6 @@ class NPUModelRunner(GPUModelRunner):
             0,
             self.dtype,
             None,
-            self.block_size,
             use_mla=self.model_config.use_mla,
             use_sparse=self.use_sparse,
             use_mm_prefix=self.model_config is not None
@@ -3966,6 +3965,7 @@ class NPUModelRunner(GPUModelRunner):
                 if spec := attn_module.get_kv_cache_spec(self.vllm_config):
                     kv_cache_spec_list[layer_name] = spec
             elif isinstance(attn_module, Attention):
+                if spec := attn_module.get_kv_cache_spec(self.vllm_config):
                     kv_cache_spec_list[layer_name] = spec
                     attn_layer_names.add(layer_name)
 

@@ -589,6 +589,7 @@ class NPUPlatform(Platform):
 
     @classmethod
     def get_attn_backend_cls(cls, selected_backend, attn_selector_config, num_heads: int | None = None):
+        use_compress = getattr(attn_selector_config, "use_compress", False)
         key = (attn_selector_config.use_mla, attn_selector_config.use_sparse)
 
         backend_map = {
@@ -616,7 +617,7 @@ class NPUPlatform(Platform):
 
         return backend_map[(attn_selector_config.use_mla,
                             attn_selector_config.use_sparse,
-                            attn_selector_config.use_compress)]
+                            use_compress)]
 
     @classmethod
     def get_punica_wrapper(cls) -> str:
