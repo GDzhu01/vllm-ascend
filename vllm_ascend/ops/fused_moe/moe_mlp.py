@@ -23,8 +23,6 @@ from vllm.triton_utils import HAS_TRITON
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType
 from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.device.mxfp_compat import (
-    QUANT_DTYPES,
-    SCALE_DTYPES,
     ensure_mxfp8_moe_available,
 )
 from vllm_ascend.ops.activation import AscendSwigluOAIAndMul
@@ -228,63 +226,24 @@ def quant_apply_mlp(
             )
         before_gmm2_evt = torch.npu.current_stream().record_event()
         # gmm2: down_proj
-        if ASCEND_DEVICE_TYPE != AscendDeviceType.A5:
-            hidden_states = DeviceOperator.npu_grouped_matmul_gmm2(
-                hidden_states=hidden_states,
-                weight=w2,
-                weight_scale=w2_scale,
-                per_token_scale=swiglu_out_scale,
-                group_list=group_list,
-                group_list_type=group_list_type,
-                input_dtype=input_hidden_dtype,
-                act_quant_type=act_quant_type,
-                weight_quant_type=weight_quant_type,
-                scale_type=scale_type,
-                per_token_scale_type=per_token_scale_type,
-                use_bf16=use_bf16,
-                use_mxfp_quant=use_mxfp_quant,
-                bias=None,
-                fallback_output_dtype=w2_scale[0].dtype if isinstance(w2_scale, list) else w2_scale.dtype,
-            )
-        else:
-            _gmm2_fallback_dtype = w2_scale[0].dtype if isinstance(w2_scale, list) else w2_scale.dtype
-            if not use_mxfp_quant:
-                hidden_states = torch_npu.npu_grouped_matmul(
-                    x=[hidden_states],
-                    weight=w2,
-                    scale=w2_scale,
-                    bias=None,
-                    per_token_scale=[swiglu_out_scale],
-                    split_item=2,
-                    group_list_type=group_list_type,
-                    group_type=0,
-                    group_list=group_list,
-                    output_dtype=_gmm2_fallback_dtype,
-                )[0]
-            else:
-                _gmm2_output_dtype = (
-                    input_hidden_dtype
-                    if input_hidden_dtype in (torch.bfloat16, torch.float16)
-                    else (torch.bfloat16 if use_bf16 else torch.float16)
-                )
-                _gmm2_weight = w2 if isinstance(w2, list) else [w2]
-                _gmm2_scale = w2_scale if isinstance(w2_scale, list) else [w2_scale]
-                hidden_states = torch_npu.npu_grouped_matmul(
-                    x=[hidden_states],
-                    weight=_gmm2_weight,
-                    scale=_gmm2_scale,
-                    bias=None,
-                    per_token_scale=[swiglu_out_scale],
-                    split_item=2,
-                    group_list_type=group_list_type,
-                    group_type=0,
-                    group_list=group_list,
-                    output_dtype=_gmm2_output_dtype,
-                    scale_dtype=scale_type if scale_type in SCALE_DTYPES else None,
-                    per_token_scale_dtype=per_token_scale_type if per_token_scale_type in SCALE_DTYPES else None,
-                    x_dtype=act_quant_type if act_quant_type in QUANT_DTYPES else None,
-                    weight_dtype=weight_quant_type if weight_quant_type in QUANT_DTYPES else None,
-                )[0]
+        hidden_states = DeviceOperator.npu_grouped_matmul_gmm2(
+            hidden_states=hidden_states,
+            weight=w2,
+            weight_scale=w2_scale,
+            per_token_scale=swiglu_out_scale,
+            group_list=group_list,
+            group_list_type=group_list_type,
+            input_dtype=input_hidden_dtype,
+            act_quant_type=act_quant_type,
+            weight_quant_type=weight_quant_type,
+            scale_type=scale_type,
+            per_token_scale_type=per_token_scale_type,
+            use_bf16=use_bf16,
+            use_mxfp_quant=use_mxfp_quant,
+            bias=None,
+            fallback_output_dtype=w2_scale[0].dtype if isinstance(w2_scale, list) else w2_scale.dtype,
+            mxfp_quant_dtype=mxfp_quant_dtype,
+        )
     elif w1_offset is not None:
         # gmm1: gate_up_proj
         hidden_states = torch_npu.npu_grouped_matmul(
@@ -402,62 +361,24 @@ def quant_apply_mlp(
                 hidden_states, swiglu_out_scale = torch_npu.npu_dynamic_quant(hidden_states)
         before_gmm2_evt = torch.npu.current_stream().record_event()
         # gmm2: down_proj
-        if ASCEND_DEVICE_TYPE != AscendDeviceType.A5:
-            hidden_states = DeviceOperator.npu_grouped_matmul_gmm2(
-                hidden_states=hidden_states,
-                weight=w2,
-                weight_scale=w2_scale,
-                per_token_scale=swiglu_out_scale,
-                group_list=group_list,
-                group_list_type=group_list_type,
-                input_dtype=input_hidden_dtype,
-                act_quant_type=act_quant_type,
-                weight_quant_type=weight_quant_type,
-                scale_type=scale_type,
-                per_token_scale_type=per_token_scale_type,
-                use_bf16=use_bf16,
-                use_mxfp_quant=use_mxfp_quant,
-                bias=bias2,
-                fallback_output_dtype=_output_dtype,
-            )
-        else:
-            if not use_mxfp_quant:
-                hidden_states = torch_npu.npu_grouped_matmul(
-                    x=[hidden_states],
-                    weight=w2,
-                    scale=w2_scale,
-                    bias=bias2,
-                    per_token_scale=[swiglu_out_scale],
-                    split_item=2,
-                    group_list_type=group_list_type,
-                    group_type=0,
-                    group_list=group_list,
-                    output_dtype=_output_dtype,
-                )[0]
-            else:
-                _gmm2_output_dtype = (
-                    input_hidden_dtype
-                    if input_hidden_dtype in (torch.bfloat16, torch.float16)
-                    else (torch.bfloat16 if use_bf16 else torch.float16)
-                )
-                _gmm2_weight = w2 if isinstance(w2, list) else [w2]
-                _gmm2_scale = w2_scale if isinstance(w2_scale, list) else [w2_scale]
-                hidden_states = torch_npu.npu_grouped_matmul(
-                    x=[hidden_states],
-                    weight=_gmm2_weight,
-                    scale=_gmm2_scale,
-                    bias=bias2,
-                    per_token_scale=[swiglu_out_scale],
-                    split_item=2,
-                    group_list_type=group_list_type,
-                    group_type=0,
-                    group_list=group_list,
-                    output_dtype=_gmm2_output_dtype,
-                    scale_dtype=scale_type if scale_type in SCALE_DTYPES else None,
-                    per_token_scale_dtype=per_token_scale_type if per_token_scale_type in SCALE_DTYPES else None,
-                    x_dtype=act_quant_type if act_quant_type in QUANT_DTYPES else None,
-                    weight_dtype=weight_quant_type if weight_quant_type in QUANT_DTYPES else None,
-                )[0]
+        hidden_states = DeviceOperator.npu_grouped_matmul_gmm2(
+            hidden_states=hidden_states,
+            weight=w2,
+            weight_scale=w2_scale,
+            per_token_scale=swiglu_out_scale,
+            group_list=group_list,
+            group_list_type=group_list_type,
+            input_dtype=input_hidden_dtype,
+            act_quant_type=act_quant_type,
+            weight_quant_type=weight_quant_type,
+            scale_type=scale_type,
+            per_token_scale_type=per_token_scale_type,
+            use_bf16=use_bf16,
+            use_mxfp_quant=use_mxfp_quant,
+            bias=bias2,
+            fallback_output_dtype=_output_dtype,
+            mxfp_quant_dtype=mxfp_quant_dtype,
+        )
     return hidden_states, before_gmm2_evt
 
 
