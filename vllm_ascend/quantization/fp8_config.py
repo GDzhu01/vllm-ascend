@@ -32,6 +32,8 @@ QUANTIZATION_SCHEME_MAP_TYPE = dict[str, Optional[dict[str, QuantizationArgs]]]
 def remove_quantization_method():
     if FP8_METHOD in QUANTIZATION_METHODS:
         QUANTIZATION_METHODS.remove(FP8_METHOD)
+    if "deepseek_v4_fp8" in QUANTIZATION_METHODS:
+        QUANTIZATION_METHODS.remove("deepseek_v4_fp8")
 
 
 remove_quantization_method()
@@ -78,7 +80,7 @@ class AscendFp8Config(QuantizationConfig):
         self.ignore = ignore
         self.quant_format = quant_format
         self.quant_description = config
-        
+
     def __repr__(self) -> str:
         return "Fp8Config:\n" + super().__repr__()
 
@@ -137,3 +139,7 @@ class AscendFp8Config(QuantizationConfig):
     def apply_vllm_mapper(self, hf_to_vllm_mapper: "WeightsMapper"):
         self.target_scheme_map = hf_to_vllm_mapper.apply_dict(self.target_scheme_map)
         self.ignore = hf_to_vllm_mapper.apply_list(self.ignore)
+
+
+# deepseek_v4_fp8 is handled identically to fp8 on Ascend — reuse the same config.
+register_quantization_config("deepseek_v4_fp8")(AscendFp8Config)
