@@ -1480,14 +1480,13 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
 
         attn_metadata_builder = attn_group.get_metadata_builder()
 
-        extra_attn_metadata_args = dict(
-            prefill_ratio_to_sas_metadata=dict(),
-            decode_ratio_to_sas_metadata=dict(),
-            common_ratio_to_sas_metadata=dict(),
-            block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
-        )
-
         if self.use_compress:
+            extra_attn_metadata_args = dict(
+                prefill_ratio_to_sas_metadata=dict(),
+                decode_ratio_to_sas_metadata=dict(),
+                common_ratio_to_sas_metadata=dict(),
+                block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
+            )
             attn_metadata = attn_metadata_builder.build_for_drafting(
                 draft_step,
                 common_attn_metadata,
@@ -1498,7 +1497,6 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 0,
                 common_attn_metadata,
                 self.runner.get_model(),
-                **extra_attn_metadata_args,
             )
 
         if self.pcp_size * self.dcp_size > 1:

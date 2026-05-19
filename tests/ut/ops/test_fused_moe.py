@@ -403,6 +403,7 @@ class TestAscendUnquantizedFusedMoEMethod:
         method = AscendUnquantizedFusedMoEMethod.__new__(AscendUnquantizedFusedMoEMethod)
         method.moe = SimpleNamespace(has_bias=True)
         method.dynamic_eplb = False
+        method.tid2eid = None
         layer = self._build_layer(has_bias=True)
         hidden_states = torch.randn(2, 4, dtype=torch.float16)
         router_logits = torch.randn(2, 4)
@@ -458,6 +459,7 @@ class TestAscendUnquantizedFusedMoEMethod:
         method = AscendUnquantizedFusedMoEMethod.__new__(AscendUnquantizedFusedMoEMethod)
         method.moe = SimpleNamespace(has_bias=False)
         method.dynamic_eplb = True
+        method.tid2eid = None
         layer = self._build_layer(has_bias=False, zero_expert_num=1)
         hidden_states = torch.randn(2, 4)
         topk_weights = torch.ones(2, 2)
@@ -728,7 +730,6 @@ class TestAscendFusedMoESharedExperts:
         if not hasattr(type(layer), "gate"):
             pytest.skip("Current AscendFusedMoE does not expose gate property")
         layer.multistream_overlap_shared_expert = False
-        layer.is_internal_router = False
         layer._gate = MagicMock()
         layer.use_overlapped = True
         assert layer.gate is layer._gate

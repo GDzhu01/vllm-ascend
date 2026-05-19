@@ -13,6 +13,7 @@ from vllm_ascend.eplb.core.eplb_utils import init_eplb_config
 
 
 class TestAscendConfig(unittest.TestCase):
+    @patch("vllm.config.VllmConfig.__post_init__", MagicMock())
     @patch("vllm_ascend.platform.NPUPlatform._fix_incompatible_config")
     def setUp(self, mock_fix_incompatible_config):
         vllm_config = VllmConfig()
