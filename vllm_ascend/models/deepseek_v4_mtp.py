@@ -481,6 +481,13 @@ class DeepSeekV4MTP(nn.Module, SupportsPP, DeepseekV2MixtureOfExperts):
                         if name is None:
                             continue
 
+                        if name not in params_dict and name.endswith(".scale"):
+                            remapped = name.replace(".scale", ".weight_scale")
+                            if remapped in params_dict:
+                                name = remapped
+                            else:
+                                continue
+
                         # # According to DeepSeek-V3 Technical Report, MTP modules
                         # # shares embedding layer. We only load the first weights.
                         # if (

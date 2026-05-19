@@ -1287,6 +1287,15 @@ class AscendDeepseekV4ForCausalLM(nn.Module, SupportsPP, DeepseekV2MixtureOfExpe
                         if is_pp_missing_parameter(name, self):
                             continue
 
+                        if name not in params_dict and name.endswith(".scale"):
+                            # Some checkpoints use .scale instead of .weight_scale
+                            # for FP8 weight scales
+                            remapped = name.replace(".scale", ".weight_scale")
+                            if remapped in params_dict:
+                                name = remapped
+                            else:
+                                continue
+
                         param = params_dict[name]
                         weight_loader = getattr(param, "weight_loader", default_weight_loader)
                         weight_loader(param, loaded_weight)
