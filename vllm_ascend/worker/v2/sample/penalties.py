@@ -21,7 +21,10 @@
 import torch
 from vllm.triton_utils import tl, triton
 
-pow = triton.language.extra.ascend.libdevice.pow
+try:
+    pow = triton.language.extra.ascend.libdevice.pow
+except AttributeError:
+    pow = None
 
 
 @triton.jit
@@ -196,9 +199,10 @@ def _bincount_kernel(
         # origin code: bit_idx = prompt_tokens % 32
         bit_idx = prompt_tokens - 32 * idx
 
-        # replace multiply with left shift
-        # origin code: bit = tl.full((BLOCK_SIZE,), 1, tl.int32) << bit_idx
-        bit = pow(2.0, bit_idx)
+        if pow is not None:
+            bit = pow(2.0, bit_idx)
+        else:
+            bit = tl.full((BLOCK_SIZE,), 1, dtype=tl.int32) << bit_idx
 
         tl.atomic_or(
             prompt_bin_mask_ptr + req_state_idx * prompt_bin_mask_stride + idx,
