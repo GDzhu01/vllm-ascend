@@ -1202,6 +1202,9 @@ class AscendDeepseekV4ForCausalLM(nn.Module, SupportsPP,
             if '.w3.' in name:
                 name = name.replace('.w3.', '.up_proj.')
 
+            if ".scale" in name:
+                name = name.replace(".scale", ".weight_scale")
+
             if 'model.head.' in name and 'model.lm_head.' not in name:
                 name = name.replace('model.head.', 'lm_head.')
             if 'model.lm_head.' in name:
