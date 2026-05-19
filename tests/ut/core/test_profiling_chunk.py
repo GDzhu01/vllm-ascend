@@ -93,6 +93,7 @@ class TestProfilingChunkConfig(TestBase):
     def test_enabled_without_pp_raises(self, _mock):
         clear_ascend_config()
         vllm_config = VllmConfig()
+        vllm_config.model_config = MagicMock()
         vllm_config.additional_config = {
             "profiling_chunk_config": {"enabled": True},
             "refresh": True,
@@ -107,6 +108,7 @@ class TestProfilingChunkConfig(TestBase):
     def test_enabled_with_pp_ok(self, _mock):
         clear_ascend_config()
         vllm_config = VllmConfig()
+        vllm_config.model_config = MagicMock()
         vllm_config.additional_config = {
             "profiling_chunk_config": {"enabled": True},
             "refresh": True,
@@ -120,6 +122,7 @@ class TestProfilingChunkConfig(TestBase):
     def test_disabled_without_pp_ok(self, _mock):
         clear_ascend_config()
         vllm_config = VllmConfig()
+        vllm_config.model_config = MagicMock()
         vllm_config.additional_config = {"refresh": True}
         ascend_config = init_ascend_config(vllm_config)
         self.assertFalse(ascend_config.profiling_chunk_config.enabled)

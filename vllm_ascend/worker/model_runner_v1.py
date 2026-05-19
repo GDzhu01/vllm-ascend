@@ -253,9 +253,10 @@ class NPUModelRunner(GPUModelRunner):
 
         # Must be set before super().__init__() because parent init may call
         # _allocate_kv_cache_tensors which accesses self.use_compress.
+        model_config = getattr(vllm_config, "model_config", None)
+        hf_config = getattr(model_config, "hf_config", None) if model_config else None
         self.use_compress = (
-            hasattr(vllm_config.model_config, "hf_config")
-            and hasattr(vllm_config.model_config.hf_config, "compress_ratios")
+            hf_config is not None and hasattr(hf_config, "compress_ratios")
         )
 
         with _torch_cuda_wrapper():

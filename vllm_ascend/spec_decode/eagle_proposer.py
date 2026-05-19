@@ -708,12 +708,14 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         # FIXME(woosuk): The below two ops cause synchronization. Optimize.
         assert len(self.draft_attn_groups) > 0
         builder = self.draft_attn_groups[0].get_metadata_builder()
-        extra_attn_metadata_args = dict(
-            prefill_ratio_to_sas_metadata=dict(),
-            decode_ratio_to_sas_metadata=dict(),
-            common_ratio_to_sas_metadata=dict(),
-            block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
-        )
+        extra_attn_metadata_args: dict = {}
+        if self.use_compress:
+            extra_attn_metadata_args = dict(
+                prefill_ratio_to_sas_metadata=dict(),
+                decode_ratio_to_sas_metadata=dict(),
+                common_ratio_to_sas_metadata=dict(),
+                block_size=self.draft_attn_groups[0].kv_cache_spec.block_size,
+            )
         attn_metadata = builder.build(0, common_attn_metadata, self.runner.get_model(), **extra_attn_metadata_args)
         # attn_metadata = self._freeze_draft_step_attn_metadata(attn_metadata)
 
@@ -1679,7 +1681,9 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
             slot_mapping=common_attn_metadata.slot_mapping,
             actual_seq_lengths_q=self.runner.actual_seq_lengths_q,
             positions=common_attn_metadata.positions[token_indices],
-            positions_cpu=common_attn_metadata.positions_cpu[token_indices],
+            positions_cpu=common_attn_metadata.positions_cpu[token_indices]
+            if common_attn_metadata.positions_cpu is not None
+            else None,
             attn_state=self.runner.attn_state,
             decode_token_per_req=self.runner.decode_token_per_req,
             max_seq_len=0,
