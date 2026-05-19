@@ -24,6 +24,7 @@ from vllm_ascend.device.mxfp_compat import (
     SCALE_DTYPES,
 )
 from vllm_ascend.utils import AscendDeviceType, get_ascend_device_type
+from vllm_ascend.quantization.quant_type import QuantType
 
 
 class BaseDeviceAdaptor:
@@ -170,6 +171,7 @@ class BaseDeviceAdaptor:
         use_mxfp_quant: bool = False,
         bias=None,
         fallback_output_dtype: torch.dtype | None = None,
+        mxfp_quant_dtype: QuantType | None = None,
     ) -> torch.Tensor:
         if use_mxfp_quant:
             raise RuntimeError("MXFP MoE quantization is only supported on Ascend A5.")
@@ -500,6 +502,7 @@ class A5DeviceAdaptor(BaseDeviceAdaptor):
         use_mxfp_quant: bool = False,
         bias=None,
         fallback_output_dtype: torch.dtype | None = None,
+        mxfp_quant_dtype: QuantType | None = None,
     ) -> torch.Tensor:
         if not use_mxfp_quant:
             return BaseDeviceAdaptor.npu_grouped_matmul_gmm2(
@@ -524,7 +527,7 @@ class A5DeviceAdaptor(BaseDeviceAdaptor):
             input_dtype=input_dtype,
             act_quant_type=act_quant_type,
             weight_quant_type=weight_quant_type,
-            scale_type=scale_type,
+            scale_type=scale_type if mxfp_quant_dtype != QuantType.MXFP4 else None,
             per_token_scale_type=per_token_scale_type,
             use_bf16=use_bf16,
             use_mxfp_quant=True,
