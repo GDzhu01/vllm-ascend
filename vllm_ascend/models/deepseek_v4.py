@@ -235,6 +235,7 @@ class DeepseekV4MoE(nn.Module):
         layer_idx = int(prefix.split(sep=".")[-2])
         self.layer_idx = layer_idx
         self.routed_scaling_factor = getattr(config, "routed_scaling_factor", 1.5)
+        self.swiglu_limit = getattr(config, "swiglu_limit", None)
 
         self.ep_group = get_ep_group().device_group
         self.ep_rank = get_ep_group().rank_in_group
