@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 from collections import deque
 from collections.abc import Sequence
+from contextlib import suppress
 from typing import Any
 
 import regex as re
@@ -92,7 +93,6 @@ def _ensure_streaming_attrs(self: DeepSeekV4ToolParser) -> None:
         self.streamed_args_for_tool = []
 
 
-@staticmethod
 def _function_name(tool) -> str | None:
     if isinstance(tool, dict):
         function = tool.get("function")
@@ -102,7 +102,6 @@ def _function_name(tool) -> str | None:
     return getattr(getattr(tool, "function", None), "name", None)
 
 
-@staticmethod
 def _function_parameters(tool):
     if isinstance(tool, dict):
         function = tool.get("function")
@@ -112,7 +111,6 @@ def _function_parameters(tool):
     return getattr(getattr(tool, "function", None), "parameters", None)
 
 
-@staticmethod
 def _convert_param_value_checked(value: str, param_type: str) -> Any:
     if value.lower() == "null":
         return None
@@ -184,7 +182,6 @@ def _coerce_param_value(
         return value
 
 
-@staticmethod
 def _repair_param_dict(
     param_dict: dict,
     param_config: dict[str, dict],
@@ -247,7 +244,6 @@ def _reset_streaming_state(self: DeepSeekV4ToolParser) -> None:
     self._args_started.clear()
 
 
-@staticmethod
 def _json_escape_string_content(text: str) -> str:
     return json.dumps(text, ensure_ascii=False)[1:-1]
 
@@ -421,13 +417,11 @@ def _close_streaming_tool_call(self: DeepSeekV4ToolParser) -> None:
 
     suffix = "}" if self._args_started[index] else "{}"
     self._queue_delta_message(self._emit_tool_args_delta(index, suffix))
-    try:
+    with suppress(json.JSONDecodeError, IndexError):
         self.prev_tool_call_arr[index] = {
             "name": self._active_tool_name,
             "arguments": json.loads(self.streamed_args_for_tool[index]),
         }
-    except (json.JSONDecodeError, IndexError):
-        logger.exception("Failed to finalize DeepSeek V4 streaming tool call")
 
     self._active_tool_index = None
     self._active_tool_name = None

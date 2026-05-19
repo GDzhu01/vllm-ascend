@@ -1494,7 +1494,7 @@ def get_compressed_pos_and_indices(
             2. Length of compressed position ids for each individual request
     """
     if not use_compress:
-        return None, None, None
+        return None, None, None  # type: ignore[return-value]
     # Assert input validity
     assert num_computed_tokens.shape == num_scheduled_tokens.shape, (
         "num_computed_tokens and num_scheduled_tokens must have the same shape"

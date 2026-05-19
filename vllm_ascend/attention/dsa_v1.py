@@ -43,11 +43,13 @@ else:
 BUILD_METADATA_STEP_PREFILL = 0
 BUILD_METADATA_STEP_DECODE = 1
 
+# mypy: disable-error-code="has-type"
+
 
 def hadamard_transform_ref(
     x: torch.Tensor,
     hadamard: torch.Tensor,
-    scale: int = 1.0,
+    scale: float = 1.0,
 ):
     x_shape = x.shape
     dim = x.shape[-1]
@@ -334,7 +336,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             if hf_config.model_type == "deepseek_v4":
                 indexer_head_dim = hf_config.index_head_dim
                 try:
-                    from scipy.linalg import hadamard
+                    from scipy.linalg import hadamard  # type: ignore[import-untyped]
                 except ImportError as e:
                     raise ImportError("Please install scipy") from e
                 log_dim = math.ceil(math.log2(indexer_head_dim))
@@ -349,7 +351,8 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         self.cu_seqlens_ori_kv = torch.tensor([], device=self.device)
         self.cu_seqlens_cmp_kv = torch.tensor([], device=self.device)
         self.seqused_q = torch.tensor([], device=self.device)
-        # Note(qcs): we use two dimension slot_mapping for kvcache with shape [block_nums, block_size, head_num, head_dim]
+        # Note(qcs): we use two dimension slot_mapping for kvcache with shape
+        # [block_nums, block_size, head_num, head_dim]
         self.slot_mapping = torch.zeros(
             (vllm_config.scheduler_config.max_num_batched_tokens, 2), dtype=torch.int32, device=self.device
         )
@@ -429,9 +432,12 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         num_reqs_actual = kwargs.get("num_reqs_actual")
         self.prefill_ratio_to_sas_metadata = kwargs.get("prefill_ratio_to_sas_metadata")
         self.decode_ratio_to_sas_metadata = kwargs.get("decode_ratio_to_sas_metadata")
+        assert self.prefill_ratio_to_sas_metadata is not None
+        assert self.decode_ratio_to_sas_metadata is not None
         self.block_size = kwargs.get("block_size", 128)
 
         self.common_ratio_to_sas_metadata = kwargs.get("common_ratio_to_sas_metadata")
+        assert self.common_ratio_to_sas_metadata is not None
 
         if self.common_ratio_to_sas_metadata.get("num_decodes", None) is None:
             self.num_decodes, self.num_prefills, self.num_decode_tokens, self.num_prefill_tokens = (
@@ -519,6 +525,8 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         common_prefix_len: int,
         common_attn_metadata: AscendCommonAttentionMetadata,
     ) -> AscendDSAPrefillMetadata:
+        assert self.prefill_ratio_to_sas_metadata is not None
+        assert self.decode_ratio_to_sas_metadata is not None
         query_start_loc = common_attn_metadata.query_start_loc
 
         # reqs_start: the start request position of prefill request
@@ -774,6 +782,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         common_attn_metadata: AscendCommonAttentionMetadata,
         num_reqs_actual: int | None,
     ) -> AscendDSADecodeMetadata:
+        assert self.decode_ratio_to_sas_metadata is not None
         if self.decode_ratio_to_sas_metadata.get("query_start_loc", None) is None:
             query_start_loc = common_attn_metadata.query_start_loc[: self.num_decodes + 1]
             self.decode_ratio_to_sas_metadata["query_start_loc"] = query_start_loc
@@ -1026,7 +1035,6 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = split_decodes_and_prefills(
             common_attn_metadata, decode_threshold=self.decode_threshold
         )
-        num_reqs_actual = kwargs.get("num_reqs_actual")
         num_input_tokens = common_attn_metadata.num_input_tokens
         input_positions = common_attn_metadata.positions[:num_input_tokens].long()
         if num_prefills:
@@ -1035,7 +1043,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             cos, sin = get_cos_and_sin_dsa(input_positions, True)
 
         slot_mapping = common_attn_metadata.slot_mapping[:num_input_tokens]
-        self.spec_slot_mapping[draft_step - 1][:num_input_tokens] = torch.stack(
+        self.spec_slot_mapping[draft_step - 1][:num_input_tokens] = torch.stack(  # type: ignore[index]
             [slot_mapping // self.block_size, slot_mapping % self.block_size], axis=-1
         )
         # logger.info(f'{draft_step=} {slot_mapping=} {self.spec_slot_mapping[draft_step - 1]=}')
@@ -1102,7 +1110,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         prefill_input_positions = input_positions[tokens_start:]
         cos, sin = get_cos_and_sin_dsa(prefill_input_positions)
 
-        prefill_slot_mapping = self.spec_slot_mapping[draft_step - 1][tokens_start:num_prefill_tokens]
+        prefill_slot_mapping = self.spec_slot_mapping[draft_step - 1][tokens_start:num_prefill_tokens]  # type: ignore[index]
         block_table = common_attn_metadata.block_table_tensor[: common_attn_metadata.num_reqs]
 
         sas_metadata = torch.ops._C_ascend.npu_sparse_attn_sharedkv_metadata(
@@ -1133,11 +1141,11 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             query_lens=None,
             seq_lens=seq_lens,
             context_lens=None,
-            input_positions=None,
+            input_positions=None,  # type: ignore[arg-type]
             block_table=block_table[reqs_start:, ...],
             slot_mapping=prefill_slot_mapping,
-            max_query_len=None,
-            max_seq_lens=None,
+            max_query_len=None,  # type: ignore[arg-type]
+            max_seq_lens=None,  # type: ignore[arg-type]
             query_start_loc=prefill_query_start_loc,
             sin=sin,
             cos=cos,
@@ -1161,10 +1169,11 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
 
         num_decodes = kwargs.get("num_decodes")
         num_decode_tokens = kwargs.get("num_decode_tokens")
-        query_start_loc = common_attn_metadata.query_start_loc[: num_decodes + 1]
-        num_reqs = common_attn_metadata.num_reqs
+        num_decodes_typed = num_decodes or 0
+        num_decode_tokens_typed = num_decode_tokens or 0
+        query_start_loc = common_attn_metadata.query_start_loc[: num_decodes_typed + 1]
         seq_lens = common_attn_metadata.seq_lens
-        query_start_loc_cpu = common_attn_metadata.query_start_loc_cpu[: num_decodes + 1]
+        query_start_loc_cpu = common_attn_metadata.query_start_loc_cpu[: num_decodes_typed + 1]
         max_seqlen_q = torch.max(query_start_loc_cpu[1:] - query_start_loc_cpu[:-1]).item()
 
         if common_attn_metadata._seq_lens_cpu is not None:
@@ -1175,10 +1184,10 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             _seq_lens_cpu = common_attn_metadata.seq_lens.cpu()
         max_seqlen_kv = torch.max(_seq_lens_cpu[:num_decodes]).item()
 
-        input_positions = common_attn_metadata.positions[:num_decode_tokens].long()
+        input_positions = common_attn_metadata.positions[:num_decode_tokens_typed].long()
         cos, sin = get_cos_and_sin_dsa(input_positions, use_cache=True)
 
-        slot_mapping = self.spec_slot_mapping[draft_step - 1][:num_decode_tokens]
+        slot_mapping = self.spec_slot_mapping[draft_step - 1][:num_decode_tokens_typed]  # type: ignore[index]
         block_table = common_attn_metadata.block_table_tensor
 
         decode_sas_metadata = torch.ops._C_ascend.npu_sparse_attn_sharedkv_metadata(
@@ -1210,10 +1219,10 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             block_table=block_table[:num_decodes, ...],
             slot_mapping=slot_mapping,
             seq_lens=seq_lens[:num_decodes],  # cached
-            seq_lens_list=None,
-            max_seq_lens=None,
-            max_seqlen_kv=None,
-            max_seqlen_q=None,
+            seq_lens_list=None,  # type: ignore[arg-type]
+            max_seq_lens=None,  # type: ignore[arg-type]
+            max_seqlen_kv=None,  # type: ignore[arg-type]
+            max_seqlen_q=None,  # type: ignore[arg-type]
             attn_mask=None,
             query_start_loc=query_start_loc,  # cached
             query_start_loc_cpu=None,
@@ -1233,7 +1242,8 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         if build_metadata_step == BUILD_METADATA_STEP_PREFILL:
             # If graph_pad_size > -1, mean is running in fullgraph mode.
             # NOTE: Maybe this block_table change can be removed when graph_pad_size > 1.
-            # if self.graph_pad_size > common_attn_metadata.num_reqs and self.speculative_config.disable_padded_drafter_batch:
+            # if self.graph_pad_size > common_attn_metadata.num_reqs and \
+            #         self.speculative_config.disable_padded_drafter_batch:
             #     return self.graph_pad_size
             return common_attn_metadata.num_reqs
         return self.num_decodes
@@ -1390,10 +1400,10 @@ class AscendDSAImpl(DSAAttentionImpl):
         output_padded = output
         # Process for Flash Comm V1
         hidden_states = torch.ops.vllm.maybe_all_gather_and_maybe_unpad(hidden_states, need_gather_q_kv)
-        has_prefill = attn_metadata[0].num_prefills > 0
-        has_decode = attn_metadata[0].num_decodes > 0
-        decode_tokens = attn_metadata[0].num_decode_tokens
-        actual_tokens = attn_metadata[0].num_actual_tokens
+        has_prefill = attn_metadata[0].num_prefills > 0  # type: ignore[index]
+        has_decode = attn_metadata[0].num_decodes > 0  # type: ignore[index]
+        decode_tokens = attn_metadata[0].num_decode_tokens  # type: ignore[index]
+        actual_tokens = attn_metadata[0].num_actual_tokens  # type: ignore[index]
         prefill_hidden_states = hidden_states[decode_tokens:actual_tokens]
         decode_hidden_states = hidden_states[:decode_tokens]
 
@@ -1402,20 +1412,20 @@ class AscendDSAImpl(DSAAttentionImpl):
         o_proj_input = torch.empty(o_proj_input_shape, dtype=hidden_states.dtype, device=hidden_states.device)
         if has_prefill:
             assert attn_metadata[0].prefill is not None
-            output_prefill = self._forward_prefill(layer_name, prefill_hidden_states, kv_cache, attn_metadata)
+            output_prefill = self._forward_prefill(layer_name, prefill_hidden_states, kv_cache, attn_metadata)  # type: ignore[arg-type]
             o_proj_input[decode_tokens:actual_tokens] = output_prefill
-            cos = attn_metadata[0].prefill.cos[layer_name]
-            sin = attn_metadata[0].prefill.sin[layer_name]
+            cos = attn_metadata[0].prefill.cos[layer_name]  # type: ignore[index]
+            sin = attn_metadata[0].prefill.sin[layer_name]  # type: ignore[index]
 
         if has_decode:
-            assert attn_metadata[0].decode is not None
-            output_decode = self._forward_decode(layer_name, decode_hidden_states, kv_cache, attn_metadata)
+            assert attn_metadata[0].decode is not None  # type: ignore[index]
+            output_decode = self._forward_decode(layer_name, decode_hidden_states, kv_cache, attn_metadata)  # type: ignore[arg-type]
             o_proj_input[:decode_tokens] = output_decode
-            cos = attn_metadata[0].decode.cos[layer_name]
-            sin = attn_metadata[0].decode.sin[layer_name]
+            cos = attn_metadata[0].decode.cos[layer_name]  # type: ignore[index]
+            sin = attn_metadata[0].decode.sin[layer_name]  # type: ignore[index]
 
-        cos = attn_metadata[0].cos[layer_name]
-        sin = attn_metadata[0].sin[layer_name]
+        cos = attn_metadata[0].cos[layer_name]  # type: ignore[index]
+        sin = attn_metadata[0].sin[layer_name]  # type: ignore[index]
         num_tokens = o_proj_input.shape[0]
 
         torch.ops._C_ascend.inplace_partial_rotary_mul(
@@ -1457,14 +1467,14 @@ class AscendDSAImpl(DSAAttentionImpl):
     ):
         compress_common_attn_metadata = None
         if self.compress_ratio == 4:
-            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache
+            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache  # type: ignore[misc]
             # sorted keys: [attn, compressor.state_cache, indexer.compressor.state_cache, indexer.k_cache, swa_cache]
-            (compressor_attn_metadata, compressor_kv_state_metadata, _, _, swa_metadata) = attn_metadata
+            (compressor_attn_metadata, compressor_kv_state_metadata, _, _, swa_metadata) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = compressor_attn_metadata
         elif self.compress_ratio == 128:
-            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache
+            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache  # type: ignore[misc]
             # sorted keys: [attn, compressor.state_cache, swa_cache]
-            (compressor_attn_metadata, compressor_kv_state_metadata, swa_metadata) = attn_metadata
+            (compressor_attn_metadata, compressor_kv_state_metadata, swa_metadata) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = compressor_attn_metadata
         else:
             (
@@ -1474,9 +1484,9 @@ class AscendDSAImpl(DSAAttentionImpl):
                 _,
                 _,
                 _,
-            ) = kv_cache
+            ) = kv_cache  # type: ignore[misc]
             # sorted keys: [swa_cache]
-            (swa_metadata,) = attn_metadata
+            (swa_metadata,) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = swa_metadata
 
         assert compress_common_attn_metadata.prefill is not None
@@ -1524,7 +1534,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                     x=hidden_states,
                     qr=qr,
                     kv_cache=kv_cache,
-                    attn_metadata=attn_metadata,
+                    attn_metadata=attn_metadata,  # type: ignore[arg-type]
                     cos=cos,
                     sin=sin,
                     compressed_cos=compress_cos,
@@ -1640,23 +1650,23 @@ class AscendDSAImpl(DSAAttentionImpl):
         kv_cache: tuple,
         attn_metadata: AscendDSAMetadata,
     ):
-        assert attn_metadata[0].decode is not None
+        assert attn_metadata[0].decode is not None  # type: ignore[index]
         compress_common_attn_metadata = None
 
         if self.compress_ratio == 4:
-            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache
+            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache  # type: ignore[misc]
             # sorted keys: [attn, compressor.state_cache, indexer.compressor.state_cache, indexer.k_cache, swa_cache]
-            (compressor_attn_metadata, compressor_kv_state_metadata, _, _, swa_metadata) = attn_metadata
+            (compressor_attn_metadata, compressor_kv_state_metadata, _, _, swa_metadata) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = compressor_attn_metadata
         elif self.compress_ratio == 128:
-            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache
+            (compress_kv_cache, swa_kv_cache, state_cache, _, _, _) = kv_cache  # type: ignore[misc]
             # sorted keys: [attn, compressor.state_cache, swa_cache]
-            (compressor_attn_metadata, compressor_kv_state_metadata, swa_metadata) = attn_metadata
+            (compressor_attn_metadata, compressor_kv_state_metadata, swa_metadata) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = compressor_attn_metadata
         else:
             (_, swa_kv_cache, _, _, _, _) = kv_cache
             # sorted keys: [swa_cache]
-            (swa_metadata,) = attn_metadata
+            (swa_metadata,) = attn_metadata  # type: ignore[misc]
             compress_common_attn_metadata = swa_metadata
         cos = compress_common_attn_metadata.decode.cos[layer_name]
         sin = compress_common_attn_metadata.decode.sin[layer_name]
@@ -1734,7 +1744,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                     x=hidden_states,
                     qr=qr,
                     kv_cache=kv_cache,
-                    attn_metadata=attn_metadata,
+                    attn_metadata=attn_metadata,  # type: ignore[arg-type]
                     cos=cos,
                     sin=sin,
                     compressed_cos=compress_cos,
@@ -1847,9 +1857,9 @@ class AscendDSAImpl(DSAAttentionImpl):
         with_prefill: bool = False,
         qr_pertoken_scale: torch.Tensor = None,
     ):
-        (_, _, _, indexer_state_cache, indexer_k_cache, indexer_scale_cache) = kv_cache
+        (_, _, _, indexer_state_cache, indexer_k_cache, indexer_scale_cache) = kv_cache  # type: ignore[misc]
         # sorted keys: [attn, compressor.state_cache, indexer.compressor.state_cache, indexer.k_cache, swa_cache]
-        (_, _, indexer_kv_state_metadata, indexer_kv_scale_metadata, _) = attn_metadata
+        (_, _, indexer_kv_state_metadata, indexer_kv_scale_metadata, _) = attn_metadata  # type: ignore[misc]
 
         if (
             (not isinstance(self.inderxer_wq_b.quant_method, AscendUnquantizedLinearMethod))
@@ -1881,11 +1891,11 @@ class AscendDSAImpl(DSAAttentionImpl):
 
         if with_prefill:
             assert indexer_kv_scale_metadata.prefill is not None
-            kv_block_table = indexer_kv_state_metadata.prefill.block_table
+            kv_block_table = indexer_kv_state_metadata.prefill.block_table  # type: ignore[union-attr]
             start_pos = indexer_kv_scale_metadata.prefill.start_pos
         else:
             assert indexer_kv_scale_metadata.decode is not None
-            kv_block_table = indexer_kv_state_metadata.decode.block_table
+            kv_block_table = indexer_kv_state_metadata.decode.block_table  # type: ignore[union-attr]
             start_pos = indexer_kv_scale_metadata.decode.start_pos
 
         kv = torch.ops._C_ascend.compressor(
@@ -1911,7 +1921,7 @@ class AscendDSAImpl(DSAAttentionImpl):
 
         if kv.numel() == 0:
             kv = None
-        elif self.indexer.compressor.rotate:
+        elif self.indexer.compressor.rotate:  # type: ignore[union-attr]
             kv = rotate_activation(kv, indexer_kv_scale_metadata.hadamard)
 
         weights = self.weights_proj(x) * (self.indexer_softmax_scale * self.indexer_heads**-0.5)

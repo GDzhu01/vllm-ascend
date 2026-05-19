@@ -812,7 +812,7 @@ class AscendFusedMoE(FusedMoE):
             # process_weights_after_loading of AscendUnquantizedLinearMethod.
             hidden_states_fp32 = hidden_states.float()
             before_routed_experts = torch.npu.current_stream().record_event()
-            router_logits = F.linear(hidden_states_fp32, self.gate.weight_fp32)
+            router_logits = F.linear(hidden_states_fp32, self.gate.weight_fp32)  # type: ignore[union-attr]
         else:
             before_routed_experts = torch.npu.current_stream().record_event()
 

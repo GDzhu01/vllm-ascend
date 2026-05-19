@@ -91,11 +91,6 @@ class DSAAttention(nn.Module, AttentionLayerBase):
             and cache_config.enable_prefix_caching
             and (self.attn_backend.get_name() == "TRITON_MLA" or self.attn_backend.get_name() == "FLASHINFER")
         ):
-            logger.warning_once(
-                "Disabling prefix caching for TRITON_MLA / FLASHINFER "
-                "with batch invariance, as it is not yet supported.",
-                scope="local",
-            )
             cache_config.enable_prefix_caching = False
 
         impl_cls = cast(type[DSAAttentionImpl], self.attn_backend.get_impl_cls())

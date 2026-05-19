@@ -727,10 +727,10 @@ class AscendModelSlimConfig(QuantizationConfig):
         This handles known key transformations such as shared_head and
         weight_packed mappings.
         """
-        if "hc_head_fn" in self.quant_description.keys():
+        if "hc_head_fn" in self.quant_description:
             # TODO
             extra_quant_dict = {}
-            for name in self.quant_description.keys():
+            for name in self.quant_description:
                 new_name = name
                 if not name.startswith("model"):
                     new_name = f"model.{name}"
@@ -738,7 +738,7 @@ class AscendModelSlimConfig(QuantizationConfig):
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description.keys():
+            for name in self.quant_description:
                 new_name = name
                 if "attn" in name and "self_attn" not in name:
                     new_name = name.replace(".attn.", ".self_attn.")
@@ -746,7 +746,7 @@ class AscendModelSlimConfig(QuantizationConfig):
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description.keys():
+            for name in self.quant_description:
                 new_name = name
                 if "ffn" in name:
                     new_name = name.replace("ffn", "mlp")
@@ -754,7 +754,7 @@ class AscendModelSlimConfig(QuantizationConfig):
             self.quant_description.update(extra_quant_dict)
 
             extra_quant_dict = {}
-            for name in self.quant_description.keys():
+            for name in self.quant_description:
                 new_name = name
                 if "w1" in name:
                     new_name = name.replace(".w1.", ".gate_proj.")

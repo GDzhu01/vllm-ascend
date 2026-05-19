@@ -247,7 +247,7 @@ class KVCacheSendingThread(threading.Thread):
                 self.ready_event.set()
                 self.run_busy_loop(sock)
         except Exception as e:
-            logger.error("Mooncake KVCacheSendingThread exception: %s", e, exc_info=True)
+            logger.exception("Mooncake KVCacheSendingThread exception: %s", e)
 
     def run_busy_loop(self, sock: zmq.Socket):  # type: ignore
         encoder = msgspec.msgpack.Encoder()
@@ -404,7 +404,7 @@ class KVCacheRecvingThread(threading.Thread):
         """Add a new request to the queue for processing."""
         if remote_port_send_num is None:
             remote_port_send_num = {}
-        logger.debug(f"Adding request {request_id} to the queue.")
+        logger.debug("Adding request %s to the queue.", request_id)
         self.request_queue.put(
             {
                 "request_id": request_id,
@@ -441,7 +441,7 @@ class KVCacheRecvingThread(threading.Thread):
                     continue
                 self._handle_request(request_data)
             except Exception as e:
-                logger.error(f"Error in KVCacheTransferThread: {e}")
+                logger.error("Error in KVCacheTransferThread: %s", e)
 
     def _handle_request(self, req_meta: dict[str, Any]):
         request_id = req_meta["request_id"]
@@ -452,14 +452,14 @@ class KVCacheRecvingThread(threading.Thread):
         all_task_done = req_meta["all_task_done"]
 
         try:
-            logger.debug(f"Starting to transfer KV cache for request {remote_request_id}.")
+            logger.debug("Starting to transfer KV cache for request %s.", remote_request_id)
             if not self.use_hybrid:
                 self._transfer_kv_cache(req_meta)
             else:
                 self._transfer_kv_cache_all_groups(req_meta)
-            logger.debug(f"Finished transferring KV cache for request {remote_request_id}.")
-        except Exception as e:
-            logger.error(f"Failed to transfer KV cache for request {remote_request_id}: {e}", exc_info=True)
+            logger.debug("Finished transferring KV cache for request %s.", remote_request_id)
+        except Exception:
+            logger.exception("Failed to transfer KV cache for request %s.", remote_request_id)
         finally:
             self._send_done_signal_to_free_remote_port(remote_request_id, remote_host, remote_port_send_num)
             if all_task_done:
@@ -504,7 +504,7 @@ class KVCacheRecvingThread(threading.Thread):
         if num_local_blocks == 0:
             return
 
-        num_remote_blocks = sum(len(group_block_ids) for group_block_ids in remote_block_ids)
+        num_remote_blocks = sum(len(group_block_ids) for group_block_ids in remote_block_ids)  # noqa: F841
         # Check if we have the remote metadata cached.
         if (
             remote_engine_id not in self.kv_caches_base_addr
@@ -533,7 +533,7 @@ class KVCacheRecvingThread(threading.Thread):
             for k, (src_layer_base_addr, dst_layer_base_addr) in enumerate(
                 zip(local_kv_caches_base_addrs, remote_kv_caches_base_addrs)
             ):
-                if self.addr_group_idx and i not in self.addr_group_idx[k]:
+                if self.addr_group_idx and i not in self.addr_group_idx[k]:  # type: ignore[operator]
                     continue
                 block_len = self.block_len_per_addr[k]
                 block_stride = self.block_stride_per_addr[k]
@@ -617,7 +617,7 @@ class KVCacheRecvingThread(threading.Thread):
         local_kv_caches_base_addrs = self.kv_caches_base_addr[self.local_engine_id][self.local_handshake_port][
             first_layer_index * num_cache_per_layer : end_layer_index * num_cache_per_layer
         ]
-        logger.debug(f"transfer kv cache first_layer_index:{first_layer_index} , end_layer_index:{end_layer_index}")
+        logger.debug("transfer kv cache first_layer_index:%s , end_layer_index:%s", first_layer_index, end_layer_index)
         remote_transfer_port = self.remote_te_port[remote_engine_id][remote_handshake_port]
         num_blocks = len(local_block_ids)
         session_id = f"{remote_host}:{remote_transfer_port}"
@@ -824,7 +824,7 @@ class KVCacheRecvingThread(threading.Thread):
             resp = ensure_zmq_recv(
                 sock, self.remote_poller, f"{remote_host}:{remote_handshake_port}", timeout=self.timeout
             )
-            logger.debug(f"Received response for request {request_id}: {resp.decode('utf-8')}")
+            logger.debug("Received response for request %s: %s", request_id, resp.decode("utf-8"))
             if resp != b"ACK":
                 logger.error(
                     "Failed to receive ACK for request %s from %s:%d", request_id, remote_host, remote_handshake_port
@@ -834,7 +834,7 @@ class KVCacheRecvingThread(threading.Thread):
             if isinstance(sock, zmq.Socket):  # type: ignore
                 sock.close()
                 sock = None
-                logger.warning(f"Unexpected error occurred in socket, {e}, closing the original channel")
+                logger.warning("Unexpected error occurred in socket, %s, closing the original channel", e)
         finally:
             if sock is not None:
                 self._return_remote_socket(sock, remote_host, remote_handshake_port)
@@ -1472,7 +1472,7 @@ class MooncakeConnectorWorker:
                         share_tensor_stride.append(single_tensor.stride(0) * single_tensor.element_size())
                 cur_tensor_group_idx = sorted(list(set(cur_tensor_group_idx)))
                 self.kv_caches_base_addr.append(min(share_tensor_addr))
-                self.addr_group_idx.append(cur_tensor_group_idx)
+                self.addr_group_idx.append(cur_tensor_group_idx)  # type: ignore[arg-type]
                 self.block_stride_per_addr.append(share_tensor_stride[0])
                 self.block_len_per_addr.append(share_tensor_stride[0])
                 ptrs.append(min(share_tensor_addr))
@@ -1806,10 +1806,10 @@ def ensure_zmq_send(
         except zmq.ZMQError as e:  # type: ignore
             retries_left -= 1
             if retries_left > 0:
-                logger.warning(f"Send failed: {e}, retrying... ({retries_left} attempts left)")
+                logger.warning("Send failed: %s, retrying... (%s attempts left)", e, retries_left)
                 time.sleep(0.1)
             else:
-                logger.error(f"Send failed after all retries: {e}")
+                logger.error("Send failed after all retries: %s", e)
                 raise RuntimeError(f"Failed to send data to {path} after {max_retries} retries: {e}")
 
 
@@ -1831,10 +1831,10 @@ def ensure_zmq_recv(
         except zmq.ZMQError as e:  # type: ignore
             retries_left -= 1
             if retries_left > 0:
-                logger.warning(f"Receive failed: {e}, retrying... ({retries_left} attempts left)")
+                logger.warning("Receive failed: %s, retrying... (%s attempts left)", e, retries_left)
                 time.sleep(0.1)
             else:
-                logger.error(f"Receive failed from {path} after all retries: {e}")
+                logger.error("Receive failed from %s after all retries: %s", path, e)
                 raise RuntimeError(f"Failed to receive data after {max_retries} retries: {e}")
 
 

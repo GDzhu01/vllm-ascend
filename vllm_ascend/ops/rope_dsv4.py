@@ -26,7 +26,7 @@ class RopeDataProxy:
 
     def __getitem__(self, index):
         if not isinstance(index, str):
-            new_map = {}
+            new_map: dict = {}
             for config_k, groups_map in self._data.items():
                 new_map[config_k] = {}
                 for group_name, item in groups_map.items():
@@ -109,10 +109,12 @@ class ComplexExpRotaryEmbedding(nn.Module):
         max_position_embeddings: int,
         base: int,
         scaling_factor: float,
-        rope_groups: list[str] = ["default"],
+        rope_groups: list[str] | None = None,
         **extra_kwargs,
     ) -> None:
         super().__init__()
+        if rope_groups is None:
+            rope_groups = ["default"]
         self.layername = layername
         self.rotary_dim = rotary_dim
         dtype = torch.get_default_dtype()

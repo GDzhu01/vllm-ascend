@@ -165,7 +165,6 @@ class AscendDeepseekSparseAttention(MultiHeadLatentAttentionWrapper):
         need_gather_q_kv = get_forward_context().flash_comm_v1_enabled
         output_shape = hidden_states.shape
         # FIXME: This does not seem right, should make sure the buffer is fixed
-        swa_kv_cache = self.swa_cache_layer.kv_cache
         output = torch.empty(output_shape, dtype=hidden_states.dtype, device=hidden_states.device)
         torch.ops.vllm.dsa_forward(hidden_states, need_gather_q_kv, output, self.prefix)
         output = output.view(-1, output_shape[-1])

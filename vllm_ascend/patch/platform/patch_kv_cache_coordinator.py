@@ -21,6 +21,8 @@ from vllm.v1.kv_cache_interface import FullAttentionSpec, KVCacheConfig, KVCache
 
 from vllm_ascend.core.single_type_kv_cache_manager import get_manager_for_kv_cache_spec
 
+USE_MULTI_GROUPS_KV_CACHE = True
+
 
 class AscendHybridKVCacheCoordinator(HybridKVCacheCoordinator):
     """
@@ -261,7 +263,7 @@ def get_kv_cache_coordinator(
     )
 
 
-vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordinator
+vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordinator  # type: ignore[attr-defined]
 
 # `kv_cache_manager` imports `get_kv_cache_coordinator` with
 # `from ... import ...`, so if it was loaded before this patch runs
@@ -269,4 +271,4 @@ vllm.v1.core.kv_cache_coordinator.get_kv_cache_coordinator = get_kv_cache_coordi
 # old function object. Update that cached binding as well.
 _kv_cache_manager = sys.modules.get("vllm.v1.core.kv_cache_manager")
 if _kv_cache_manager is not None:
-    _kv_cache_manager.get_kv_cache_coordinator = get_kv_cache_coordinator
+    _kv_cache_manager.get_kv_cache_coordinator = get_kv_cache_coordinator  # type: ignore[attr-defined]

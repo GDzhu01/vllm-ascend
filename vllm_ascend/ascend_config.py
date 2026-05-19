@@ -364,7 +364,8 @@ class FinegrainedTPConfig:
                 )
         if self.olora_tensor_parallel_size > 0:
             enabled_configs.append(f"olora_tensor_parallel_size={self.olora_tensor_parallel_size}")
-            # dummy_run does not run the entire attention module in eager mode,, so the o_lora tp split can only be used in graph mode.
+            # dummy_run does not run the entire attention module in eager mode,
+            # so the o_lora tp split can only be used in graph mode.
             if vllm_config.model_config.enforce_eager is True:
                 raise AssertionError("olora_tensor_parallel_size is only supported in graph mode")
             if vllm_config.kv_transfer_config is None or not vllm_config.kv_transfer_config.is_kv_consumer:

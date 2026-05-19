@@ -85,7 +85,7 @@ from vllm_ascend.utils import (
 
 
 def hadamard_transform_ref(x: torch.Tensor, scale=1.0):
-    from scipy.linalg import hadamard
+    from scipy.linalg import hadamard  # type: ignore[import-untyped]
 
     if hadamard is None:
         raise ImportError("Please install scipy")
@@ -960,7 +960,6 @@ class DeepseekV2MixtureOfExperts(MixtureOfExperts):
             self.num_routed_experts = 0
             self.num_shared_experts = 0
             self.num_redundant_experts = 0
-            logger.warning("DeepSeekV2: No DeepseekV4MoE layer found in model.layers.")
         else:
             self.num_logical_experts = example_moe.n_logical_experts
             self.num_physical_experts = example_moe.n_physical_experts

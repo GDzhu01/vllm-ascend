@@ -499,7 +499,4 @@ class DeepSeekV4MTP(nn.Module, SupportsPP, DeepseekV2MixtureOfExperts):
             ".head.",
             ".emb.tok_emb.",
         ]
-        for name in names:
-            if name in layer_name:
-                return True
-        return False
+        return any(name in layer_name for name in names)
