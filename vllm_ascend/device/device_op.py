@@ -523,11 +523,12 @@ class A5DeviceAdaptor(BaseDeviceAdaptor):
                 fallback_output_dtype=fallback_output_dtype,
             )
 
+        use_mxfp4 = mxfp_quant_dtype == QuantType.MXFP4
         gmm2_kwargs = cls.get_quant_gmm2_kwargs(
             input_dtype=input_dtype,
             act_quant_type=act_quant_type,
             weight_quant_type=weight_quant_type,
-            scale_type=scale_type if mxfp_quant_dtype != QuantType.MXFP4 else None,
+            scale_type=scale_type if not use_mxfp4 else None,
             per_token_scale_type=per_token_scale_type,
             use_bf16=use_bf16,
             use_mxfp_quant=True,
@@ -541,19 +542,35 @@ class A5DeviceAdaptor(BaseDeviceAdaptor):
         gmm2_weight = weight if isinstance(weight, list) else [weight]
         gmm2_scale = weight_scale if isinstance(weight_scale, list) else [weight_scale]
 
-        return torch_npu.npu_grouped_matmul(
-            x=[hidden_states],
-            weight=gmm2_weight,
-            scale=gmm2_scale,
-            bias=bias,
-            per_token_scale=[per_token_scale],
-            split_item=2,
-            group_list_type=group_list_type,
-            group_type=0,
-            group_list=group_list,
-            output_dtype=output_dtype,
-            **gmm2_kwargs,
-        )[0]
+        if use_mxfp4:
+            return torch_npu.npu_grouped_matmul(
+                x=[hidden_states],
+                weight=gmm2_weight,
+                scale=None,
+                antiquant_scale=gmm2_scale,
+                bias=bias,
+                per_token_scale=[per_token_scale],
+                split_item=2,
+                group_list_type=group_list_type,
+                group_type=0,
+                group_list=group_list,
+                output_dtype=output_dtype,
+                **gmm2_kwargs,
+            )[0]
+        else:
+            return torch_npu.npu_grouped_matmul(
+                x=[hidden_states],
+                weight=gmm2_weight,
+                scale=gmm2_scale,
+                bias=bias,
+                per_token_scale=[per_token_scale],
+                split_item=2,
+                group_list_type=group_list_type,
+                group_type=0,
+                group_list=group_list,
+                output_dtype=output_dtype,
+                **gmm2_kwargs,
+            )[0]
 
     @staticmethod
     def kv_cache_load(cache_kv_c, cache_k_pe, block_table, context_seq_len_npu, seq_offset, key, value):
