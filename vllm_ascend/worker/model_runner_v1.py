@@ -250,6 +250,14 @@ class NPUModelRunner(GPUModelRunner):
             vllm_config.parallel_config.prefill_context_parallel_size * 2 * vllm_config.scheduler_config.max_num_seqs
         )
         vllm_config.scheduler_config.max_num_batched_tokens += max_pcp_pad_tokens
+
+        # Must be set before super().__init__() because parent init may call
+        # _allocate_kv_cache_tensors which accesses self.use_compress.
+        self.use_compress = (
+            hasattr(vllm_config.model_config, "hf_config")
+            and hasattr(vllm_config.model_config.hf_config, "compress_ratios")
+        )
+
         with _torch_cuda_wrapper():
             super().__init__(vllm_config, device)
 
@@ -326,8 +334,6 @@ class NPUModelRunner(GPUModelRunner):
             self.c8_k_cache_dtype = torch.int8
             self.c8_k_scale_cache_dtype = torch.float16
 
-        self.use_compress = hasattr(self.vllm_config.model_config.hf_config,
-                                    "compress_ratios")
         self.attn_backend = get_attn_backend(
             0,
             self.dtype,
