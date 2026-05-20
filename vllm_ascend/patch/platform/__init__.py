@@ -31,7 +31,6 @@ import vllm_ascend.patch.platform.patch_minimax_m2_config  # noqa
 import vllm_ascend.patch.platform.patch_minimax_usage_accounting  # noqa
 import vllm_ascend.patch.platform.patch_glm_tool_call_parser  # noqa
 import vllm_ascend.patch.platform.patch_deepseek_v4_tool_call_parser  # noqa
-import vllm_ascend.patch.platform.patch_sched_yield  # noqa
 import vllm_ascend.patch.platform.patch_torch_accelerator  # noqa
 import vllm_ascend.patch.platform.patch_tool_choice_none_content  # noqa
 import vllm_ascend.patch.platform.patch_transformers  # noqa
