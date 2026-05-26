@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import torch
@@ -42,10 +42,6 @@ else:
 
 BUILD_METADATA_STEP_PREFILL = 0
 BUILD_METADATA_STEP_DECODE = 1
-
-# mypy: disable-error-code="has-type"
-
-
 def hadamard_transform_ref(
     x: torch.Tensor,
     hadamard: torch.Tensor,
@@ -437,6 +433,20 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         fast_build: bool = False,
         **kwargs,
     ) -> AscendDSAMetadata:
+        num_actual_tokens = common_attn_metadata.num_actual_tokens
+        use_padded_decode_metadata = (
+            kwargs.get("use_padded_decode_metadata", False)
+            and common_attn_metadata.max_query_len <= self.decode_threshold
+            and common_attn_metadata.num_input_tokens > num_actual_tokens
+        )
+        if use_padded_decode_metadata:
+            # In FULL graph decode, hidden_states keeps the padded TND length.
+            # The sparse-attention metadata must describe that padded q length,
+            # while the public metadata still reports the real token count.
+            common_attn_metadata = replace(
+                common_attn_metadata,
+                num_actual_tokens=common_attn_metadata.num_input_tokens,
+            )
         num_reqs = common_attn_metadata.num_reqs
         query_start_loc = common_attn_metadata.query_start_loc
         num_reqs_actual = kwargs.get("num_reqs_actual")
@@ -457,7 +467,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             self.common_ratio_to_sas_metadata["num_prefills"] = self.num_prefills
             self.common_ratio_to_sas_metadata["num_decode_tokens"] = self.num_decode_tokens
             self.common_ratio_to_sas_metadata["num_prefill_tokens"] = self.num_prefill_tokens
-            self.set_num_actual_tokens(common_attn_metadata)
+            self.num_actual_tokens = num_actual_tokens
             assert self.num_decodes + self.num_prefills == num_reqs
             assert self.num_decode_tokens + self.num_prefill_tokens == common_attn_metadata.num_actual_tokens
             num_input_tokens = common_attn_metadata.num_input_tokens
@@ -470,6 +480,12 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             self.common_ratio_to_sas_metadata["cos"] = cos
             self.common_ratio_to_sas_metadata["sin"] = sin
             self.seq_lens = common_attn_metadata.seq_lens[:num_reqs]
+            if (
+                use_padded_decode_metadata
+                and num_reqs_actual is not None
+                and num_reqs_actual < num_reqs
+            ):
+                self.seq_lens[num_reqs_actual:num_reqs].fill_(1)
             self.common_ratio_to_sas_metadata["seq_lens"] = self.seq_lens
 
             query_start_loc_cpu = common_attn_metadata.query_start_loc_cpu
@@ -483,11 +499,17 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
                 self.common_ratio_to_sas_metadata["num_decode_tokens"],
                 self.common_ratio_to_sas_metadata["num_prefill_tokens"],
             )
-            self.set_num_actual_tokens(common_attn_metadata)
+            self.num_actual_tokens = num_actual_tokens
             num_input_tokens = common_attn_metadata.num_input_tokens
             input_positions = self.common_ratio_to_sas_metadata["input_positions"]
             cos, sin = self.common_ratio_to_sas_metadata["cos"], self.common_ratio_to_sas_metadata["sin"]
             self.seq_lens = self.common_ratio_to_sas_metadata["seq_lens"]
+            if (
+                use_padded_decode_metadata
+                and num_reqs_actual is not None
+                and num_reqs_actual < num_reqs
+            ):
+                self.seq_lens[num_reqs_actual:num_reqs].fill_(1)
             self.query_lens = self.common_ratio_to_sas_metadata["query_lens"]
 
         # NOTE: Currently, MTP-fullgraph is incompatibility pcp
@@ -510,7 +532,12 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         decode_metadata = None
 
         if self.num_decodes > 0:
-            decode_metadata = self.build_decode_metadata(common_prefix_len, common_attn_metadata, num_reqs_actual)
+            decode_metadata = self.build_decode_metadata(
+                common_prefix_len,
+                common_attn_metadata,
+                num_reqs_actual,
+                use_padded_decode_metadata,
+            )
 
         return self.metadata_cls(  # type: ignore
             num_input_tokens=common_attn_metadata.num_input_tokens,
@@ -801,6 +828,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         common_prefix_len: int,
         common_attn_metadata: AscendCommonAttentionMetadata,
         num_reqs_actual: int | None,
+        use_padded_decode_metadata: bool = False,
     ) -> AscendDSADecodeMetadata:
         assert self.decode_ratio_to_sas_metadata is not None
         if self.decode_ratio_to_sas_metadata.get("query_start_loc", None) is None:
@@ -928,7 +956,11 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         self.start_pos_decode.fill_(0)
         self.start_pos_decode[: self.num_decodes] = start_pos_decode
 
-        if num_reqs_actual is not None and num_reqs_actual < self.num_decodes:
+        if (
+            use_padded_decode_metadata
+            and num_reqs_actual is not None
+            and num_reqs_actual < self.num_decodes
+        ):
             self.start_pos_decode[num_reqs_actual:].fill_(0)
             self.block_table[num_reqs_actual : self.num_decodes, ...].fill_(0)
 
@@ -1491,7 +1523,6 @@ class AscendDSAImpl(DSAAttentionImpl):
         actual_tokens = attn_metadata[0].num_actual_tokens  # type: ignore[index]
         prefill_hidden_states = hidden_states[decode_tokens:actual_tokens]
         decode_hidden_states = hidden_states[:decode_tokens]
-
         forward_context = get_forward_context()
         o_proj_input_shape = (forward_context.num_tokens, self.n_local_heads, self.head_dim)
         o_proj_input = torch.empty(o_proj_input_shape, dtype=hidden_states.dtype, device=hidden_states.device)
@@ -1512,7 +1543,6 @@ class AscendDSAImpl(DSAAttentionImpl):
         cos = attn_metadata[0].cos[layer_name]  # type: ignore[index]
         sin = attn_metadata[0].sin[layer_name]  # type: ignore[index]
         num_tokens = o_proj_input.shape[0]
-
         torch.ops._C_ascend.inplace_partial_rotary_mul(
             o_proj_input.unsqueeze(1),
             cos,
@@ -1520,7 +1550,6 @@ class AscendDSAImpl(DSAAttentionImpl):
             rotary_mode="interleave",
             partial_slice=[self.nope_head_dim, self.head_dim],
         )
-
         # o
         if get_ascend_device_type() in {AscendDeviceType.A5}:
 
@@ -1535,7 +1564,6 @@ class AscendDSAImpl(DSAAttentionImpl):
             o_proj_input = o_proj_input.view(num_tokens, self.n_local_groups, -1)
             if olora_tp_enable():
                 o_proj_input = self.wo_a(o_proj_input)
-            else:
             # wo_a = self.wo_a.weight.view(self.n_local_groups, self.o_lora_rank, -1)
             # o = torch.einsum("tgd,grd->tgr", o, wo_a)
                 o_proj_input = torch_npu.npu_transpose_batchmatmul(
@@ -1600,7 +1628,6 @@ class AscendDSAImpl(DSAAttentionImpl):
         sin = compress_common_attn_metadata.prefill.sin[layer_name]
         actual_seq_lengths_query = compress_common_attn_metadata.prefill.query_start_loc
         actual_seq_lengths_key = compress_common_attn_metadata.prefill.seq_lens
-
         # mlaprolog
         # q
         qr = self.q_norm(self.wq_a(hidden_states))
@@ -1609,7 +1636,6 @@ class AscendDSAImpl(DSAAttentionImpl):
             q = self.q_norm_without_weight(q)
         else:
             q = triton_q_rms(q, self.eps)
-
         torch.ops._C_ascend.inplace_partial_rotary_mul(
             q.unsqueeze(1),
             cos,
@@ -1630,7 +1656,6 @@ class AscendDSAImpl(DSAAttentionImpl):
             rotary_mode="interleave",
             partial_slice=[self.nope_head_dim, self.head_dim],
         )
-
         # swa exec kv
         if is_a5:
             torch.ops._C_ascend.kv_compress_epilog(
@@ -1689,7 +1714,6 @@ class AscendDSAImpl(DSAAttentionImpl):
                 rotary_mode=2,
                 cache_mode=1,
             )
-
             if compressed_kv.numel() == 0:
                 compressed_kv = None
 
@@ -1708,7 +1732,6 @@ class AscendDSAImpl(DSAAttentionImpl):
                 torch.ops._C_ascend.npu_scatter_nd_update_v2(
                     compress_kv_cache, compressor_attn_metadata.prefill.slot_mapping, compressed_kv
                 )
-
         if is_a5:
             if self.compress_ratio <= 1:
                 attn_output = torch.ops._C_ascend.npu_kv_quant_sparse_attn_sharedkv(
@@ -1905,12 +1928,10 @@ class AscendDSAImpl(DSAAttentionImpl):
             qr = q = self.q_norm(self.wq_a(hidden_states))
             q = self.wq_b(q).unflatten(-1, (self.n_local_heads, self.head_dim))
             qr_pertoken_scale = None
-
         if is_a5:
             q = self.q_norm_without_weight(q)
         else:
             q = triton_q_rms(q, self.eps)
-
         torch.ops._C_ascend.inplace_partial_rotary_mul(
             q.unsqueeze(1),
             cos,
@@ -1918,7 +1939,6 @@ class AscendDSAImpl(DSAAttentionImpl):
             rotary_mode="interleave",
             partial_slice=[self.nope_head_dim, self.head_dim],
         )
-
         with npu_stream_switch(attention_calculation_stream(), enabled=self.multistream_dsa_preprocess):
             if wait_hidden_state_cal_event:
                 torch.npu.current_stream().wait_event(wait_hidden_state_cal_event)
@@ -1936,7 +1956,6 @@ class AscendDSAImpl(DSAAttentionImpl):
                 rotary_mode="interleave",
                 partial_slice=[self.nope_head_dim, self.head_dim],
             )
-
             # swa exec kv
             if is_a5:
                 torch.ops._C_ascend.kv_compress_epilog(

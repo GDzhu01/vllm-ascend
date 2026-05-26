@@ -1880,6 +1880,7 @@ class NPUModelRunner(GPUModelRunner):
                     ubatch_slices=ubatch_slices_attn,
                     logits_indices=logits_indices,
                     use_spec_decode=use_spec_decode,
+                    use_padded_decode_metadata=cudagraph_mode == CUDAGraphMode.FULL,
                     num_scheduled_tokens=scheduler_output.num_scheduled_tokens,
                     num_scheduled_tokens_np=num_scheduled_tokens_np,
                     cascade_attn_prefix_lens=cascade_attn_prefix_lens,
@@ -2628,6 +2629,7 @@ class NPUModelRunner(GPUModelRunner):
         logits_indices: torch.Tensor | None = None,
         use_spec_decode: bool = False,
         for_cudagraph_capture: bool = False,
+        use_padded_decode_metadata: bool = False,
         num_scheduled_tokens: dict[str, int] | None = None,
         num_scheduled_tokens_np: np.ndarray | None = None,
         cascade_attn_prefix_lens: list[list[int]] | None = None,
@@ -2826,6 +2828,7 @@ class NPUModelRunner(GPUModelRunner):
                         decode_ratio_to_sas_metadata=dict(),
                         common_ratio_to_sas_metadata=dict(),
                         block_size=attn_group.kv_cache_spec.block_size,
+                        use_padded_decode_metadata=use_padded_decode_metadata,
                         )
                 else:
                     extra_attn_metadata_args = dict(
@@ -2835,6 +2838,7 @@ class NPUModelRunner(GPUModelRunner):
                         decode_ratio_to_sas_metadata=decode_ratio_to_sas_metadata,
                         common_ratio_to_sas_metadata=common_ratio_to_sas_metadata,
                         block_size=attn_group.kv_cache_spec.block_size,
+                        use_padded_decode_metadata=use_padded_decode_metadata,
                         )
 
             # add kvcomp_metadata into common_attn_metadata
@@ -3117,6 +3121,7 @@ class NPUModelRunner(GPUModelRunner):
                 max_query_len=max_query_len,
                 ubatch_slices=ubatch_slices_padded if pad_attn else ubatch_slices,
                 for_cudagraph_capture=is_graph_capturing,
+                use_padded_decode_metadata=cudagraph_runtime_mode == CUDAGraphMode.FULL,
                 num_scheduled_tokens_np=num_scheduled_tokens,
             )
 

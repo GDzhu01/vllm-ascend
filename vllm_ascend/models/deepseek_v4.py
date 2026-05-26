@@ -83,7 +83,6 @@ from vllm_ascend.utils import (
     get_dsv4_compress_ratio,
 )
 
-
 def hadamard_transform_ref(x: torch.Tensor, scale=1.0):
     from scipy.linalg import hadamard  # type: ignore[import-untyped]
 
