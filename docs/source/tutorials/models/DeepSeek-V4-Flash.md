@@ -135,48 +135,46 @@ Run the following scripts on each node respectively.
 Run the following script to execute online inference.
 
 ```shell
-#!/usr/bin/bash
-export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
 export OMP_PROC_BIND=false
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=10
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-export ACL_OP_INIT_MODE=1
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+export HCCL_BUFFSIZE=1024
+export VLLM_ASCEND_APPLY_DSV4_PATCH=1
 export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
-
-export USE_MULTI_GROUPS_KV_CACHE=1
-
 export TASK_QUEUE_ENABLE=1
 export HCCL_OP_EXPANSION_MODE="AIV"
-export HCCL_BUFFSIZE=512
 
-sysctl -w vm.swappiness=0
-sysctl -w kernel.numa_balancing=0
-sysctl kernel.sched_migration_cost_ns=50000
-
-vllm serve /mnt/nfs_hw/weight/DeepSeek-V4-Flash-w8a8-mtp \
-  --safetensors-load-strategy 'prefetch' \
-  --max-model-len 135168 \
-  --max-num-batched-tokens 4096 \
-  --served-model-name ds \
-  --gpu-memory-utilization 0.92 \
-  --max-num-seqs 16 \
-  --data-parallel-size 1 \
-  --tensor-parallel-size 8 \
-  --enable-expert-parallel \
-  --quantization ascend \
-  --port 7000 \
-  --block-size 128 \
-  --enable-chunked-prefill \
-  --enable-prefix-caching \
-  --tokenizer-mode deepseek_v4 \
-  --tool-call-parser deepseek_v4 \
-  --enable-auto-tool-choice \
-  --reasoning-parser deepseek_v4 \
-  --async-scheduling \
-  --additional-config '{"enable_cpu_binding":true,"multistream_overlap_shared_expert":false}' \
-  --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[2,4,6,8,10,12,14,16,18,20,22,24,32,36,40]}' \
-  --model-loader-extra-config '{"enable_multithread_load":true,"num_threads":16}' \
-  --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}'
+vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp \
+    --max_model_len 133120 \
+    --max-num-batched-tokens 8192 \
+    --served-model-name dsv4 \
+    --gpu-memory-utilization 0.9 \
+    --max-num-seqs 32 \
+    --data-parallel-size 1 \
+    --tensor-parallel-size 8 \
+    --enable-expert-parallel \
+    --tokenizer-mode deepseek_v4 \
+    --tool-call-parser deepseek_v4 \
+    --enable-auto-tool-choice \
+    --reasoning-parser deepseek_v4 \
+    --safetensors-load-strategy 'prefetch' \
+    --no-enable-prefix-caching \
+    --model-loader-extra-config='{"enable_multithread_load": "true", "num_threads": 128}' \
+    --quantization ascend \
+    --port 8900 \
+    --block-size 128 \
+    --speculative-config '{"num_speculative_tokens": 1,"method": "mtp","enforce_eager": true}' \
+    --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}'\
+    --async-scheduling \
+    --additional-config '
+    {"ascend_compilation_config":{
+        "enable_npugraph_ex":true,
+        "enable_static_kernel":false
+        },
+    "enable_cpu_binding": true,
+    "enable_dsa_cp": true,
+    "multistream_overlap_shared_expert":true}'
 ```
 
 ::::
@@ -599,12 +597,9 @@ Before you start, please
     nic_name="xxxxxx" #eg."enp67s0f0np0"
     local_ip=`hostname -I|awk -F " " '{print$1}'`
 
-    # # jemalloc
     export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-    # # AIV
     export HCCL_OP_EXPANSION_MODE="AIV"
     export TASK_QUEUE_ENABLE=1
-
     export VLLM_RPC_TIMEOUT=3600000
     export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=30000
     export HCCL_EXEC_TIMEOUT=204
@@ -618,12 +613,12 @@ Before you start, please
     export OMP_NUM_THREADS=10
     export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
     export HCCL_BUFFSIZE=1024
-    export TASK_QUEUE_ENABLE=1
-
-    export USE_MULTI_GROUPS_KV_CACHE=1
-    export USE_MULTI_BLOCK_POOL=1
 
     export ASCEND_RT_VISIBLE_DEVICES=$1
+    export TASK_QUEUE_ENABLE=1
+    export VLLM_ASCEND_APPLY_DSV4_PATCH=1
+
+
 
     vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp \
         --host 0.0.0.0 \
@@ -636,9 +631,10 @@ Before you start, please
         --enable-expert-parallel \
         --seed 1024 \
         --served-model-name deepseek_v4 \
-        --max-model-len 137216 \
-        --max-num-batched-tokens 8192 \
+        --max-model-len 135000 \
+        --max-num-batched-tokens 4096 \
         --max-num-seqs 16 \
+        --block-size 128 \
         --enforce-eager \
         --async-scheduling \
         --no-disable-hybrid-kv-cache-manager \
@@ -647,12 +643,13 @@ Before you start, please
         --gpu-memory-utilization 0.9 \
         --quantization ascend \
         --safetensors-load-strategy 'prefetch' \
+        --model-loader-extra-config='{"enable_multithread_load": "true", "num_threads": 128}' \
         --tokenizer-mode deepseek_v4 \
         --tool-call-parser deepseek_v4 \
         --enable-auto-tool-choice \
         --reasoning-parser deepseek_v4 \
-        --additional-config '{"enable_cpu_binding": true}' \
-        --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
+        --additional-config '{"enable_cpu_binding": true, "enable_shared_expert_dp": true}' \
+        --speculative-config '{"num_speculative_tokens": 1, "method": "mtp","enforce_eager": true}' \
         --kv-transfer-config \
         '{"kv_connector": "MooncakeHybridConnector",
         "kv_role": "kv_producer",
@@ -678,19 +675,18 @@ For each P instance, only these two configuration values need to be modified: â€
 
     ```shell
     unset ftp_proxy
+    unset ftp_proxy
     unset https_proxy
     unset http_proxy
     rm -rf ~/ascend/log
 
-    nic_name="xxxxxxx" #eg. "enp67s0f0np0"
+    nic_name="xxxxxx" #eg."enp67s0f0np0"
     local_ip=`hostname -I|awk -F " " '{print$1}'`
 
-    # # jemalloc
     export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-    # # AIV
     export HCCL_OP_EXPANSION_MODE="AIV"
     export TASK_QUEUE_ENABLE=1
-
+    export VLLM_ASCEND_APPLY_DSV4_PATCH=1
     export VLLM_RPC_TIMEOUT=3600000
     export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=30000
     export HCCL_EXEC_TIMEOUT=204
@@ -704,14 +700,6 @@ For each P instance, only these two configuration values need to be modified: â€
     export OMP_NUM_THREADS=10
     export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
     export HCCL_BUFFSIZE=1024
-    export TASK_QUEUE_ENABLE=1
-
-    export USE_MULTI_GROUPS_KV_CACHE=1
-    export USE_MULTI_BLOCK_POOL=1
-
-    export VLLM_TORCH_PROFILER_WITH_STACK=0
-    export VLLM_TORCH_PROFILER_DIR="./profiling"
-
 
     export ASCEND_RT_VISIBLE_DEVICES=$1
 
@@ -726,25 +714,23 @@ For each P instance, only these two configuration values need to be modified: â€
         --enable-expert-parallel \
         --seed 1024 \
         --served-model-name deepseek_v4 \
-        --max-model-len 137216 \
+        --max-model-len 135000 \
         --max-num-batched-tokens 60 \
         --max-num-seqs 30 \
         --async-scheduling \
+        --block-size 128 \
         --no-disable-hybrid-kv-cache-manager \
+        --no-enable-prefix-caching \
         --trust-remote-code \
         --gpu-memory-utilization 0.9 \
         --quantization ascend \
         --safetensors-load-strategy 'prefetch' \
+        --model-loader-extra-config='{"enable_multithread_load": "true", "num_threads": 128}' \
         --tokenizer-mode deepseek_v4 \
         --tool-call-parser deepseek_v4 \
         --enable-auto-tool-choice \
         --reasoning-parser deepseek_v4 \
-        --quantization ascend \
-        --profiler-config \
-            '{"profiler": "torch",
-            "torch_profiler_dir": "./profiling",
-            "torch_profiler_with_stack": false}' \
-        --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+        --speculative-config '{"num_speculative_tokens": 1, "method": "mtp","enforce_eager": true}' \
         --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
         --kv-transfer-config \
         '{"kv_connector": "MooncakeHybridConnector",
@@ -764,21 +750,13 @@ For each P instance, only these two configuration values need to be modified: â€
         }' \
         --additional-config '{
             "ascend_compilation_config":{
-                "enable_npugraph_ex":true,
-                "enable_static_kernel":false
+                  "enable_npugraph_ex":true,
+                  "enable_static_kernel":false
             },
-            "eplb_config":{
-                "dynamic_eplb":false,
-                "expert_heat_collection_interval":600,
-                "algorithm_execution_interval":50,
-                "eplb_policy_type":2,
-                "num_redundant_experts":32
-        },
-        "enable_cpu_binding":true,
-        "multistream_overlap_shared_expert":false,
-        "multistream_dsa_preprocess":false,
-        "recompute_scheduler_enable":true
-        }' 
+           "enable_cpu_binding":true,
+           "multistream_overlap_shared_expert":true,
+           "recompute_scheduler_enable":true
+        }'
     ```
 
 Once the preparation is done, you can start the server with the following command on each node:
