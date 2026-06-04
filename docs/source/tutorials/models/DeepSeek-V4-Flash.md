@@ -618,8 +618,6 @@ Before you start, please
     export TASK_QUEUE_ENABLE=1
     export VLLM_ASCEND_APPLY_DSV4_PATCH=1
 
-
-
     vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp \
         --host 0.0.0.0 \
         --port $2 \
