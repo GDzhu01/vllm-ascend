@@ -897,11 +897,11 @@ Before you start, please
 
 2. prepare the script `run_dp_template.sh` on each node.
 
-   1. Prefill node  (Same as another P node)
+   1. Prefill node  (4 P nodes share the same script)
 
       ```shell
       nic_name="xxxx" # change to your own nic name
-      local_ip=`hostname -I|awk -F " " '{print$1}'`
+      local_ip=xx.xx.xx.1/2/3/4 # change to your own ip
       
       export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
       export HCCL_OP_EXPANSION_MODE="AIV"
@@ -940,7 +940,7 @@ Before you start, please
           --enable-expert-parallel \
           --seed 1024 \
           --served-model-name deepseek_v4 \
-          --max_model_len 133072 \
+          --max-model-len 133072 \
           --max-num-batched-tokens 4096 \
           --max-num-seqs 16 \
           --no-disable-hybrid-kv-cache-manager \
@@ -956,7 +956,7 @@ Before you start, please
           --enforce-eager \
           --no-enable-prefix-caching \
           --speculative-config '{"num_speculative_tokens": 1, "method":"mtp", "enforce_eager": true}' \
-          --additional_config '{"enable_cpu_binding": true, "enable_shared_expert_dp": true, "enable_dsa_cp": true}' \
+          --additional-config '{"enable_cpu_binding": true, "enable_shared_expert_dp": true, "enable_dsa_cp": true}' \
           --kv-transfer-config \
           '{"kv_connector": "MooncakeHybridConnector",
           "kv_role": "kv_producer",
@@ -975,11 +975,11 @@ Before you start, please
           }'
       ```
 
-   2. Decode node (Same as another D node)
+   2. Decode node (4 D nodes share the same script)
 
       ```shell
       nic_name="xxxx" # change to your own nic name
-      local_ip=`hostname -I|awk -F " " '{print$1}'`
+      local_ip=xx.xx.xx.5/6/7/8 # change to your own ip
       
       export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
       export HCCL_OP_EXPANSION_MODE="AIV"
