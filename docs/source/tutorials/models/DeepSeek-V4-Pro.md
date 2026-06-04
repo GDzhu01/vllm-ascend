@@ -897,10 +897,9 @@ Before you start, please
       sysctl -w kernel.numa_balancing=0
       sysctl kernel.sched_migration_cost_ns=50000
       
-      export USE_MULTI_GROUPS_KV_CACHE=1
-      export USE_MULTI_BLOCK_POOL=1
       export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
       export ASCEND_RT_VISIBLE_DEVICES=$1
+      export VLLM_ASCEND_APPLY_DSV4_PATCH=1
       
       vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-mtp \
           --host 0.0.0.0 \
@@ -914,27 +913,27 @@ Before you start, please
           --seed 1024 \
           --served-model-name deepseek_v4 \
           --max_model_len 133072 \
-          --max-num-batched-tokens 8192 \
+          --max-num-batched-tokens 4096 \
           --max-num-seqs 16 \
           --no-disable-hybrid-kv-cache-manager \
           --trust-remote-code \
           --gpu-memory-utilization 0.9 \
           --quantization ascend \
           --safetensors-load-strategy 'prefetch' \
+          --model-loader-extra-config='{"enable_multithread_load": "true", "num_threads": 128}' \
           --tokenizer-mode deepseek_v4 \
           --tool-call-parser deepseek_v4 \
           --enable-auto-tool-choice \
           --reasoning-parser deepseek_v4 \
           --enforce-eager \
-          --enable-prefix-caching \
-          --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
-          --additional_config '{"enable_cpu_binding": true}' \
+          --no-enable-prefix-caching \
+          --speculative-config '{"num_speculative_tokens": 1, "method":"mtp", "enforce_eager": true}' \
+          --additional_config '{"enable_cpu_binding": true, "enable_shared_expert_dp": true, "enable_dsa_cp": true}' \
           --kv-transfer-config \
           '{"kv_connector": "MooncakeHybridConnector",
           "kv_role": "kv_producer",
           "kv_port": "30000",
           "engine_id": "0",
-          "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
           "kv_connector_extra_config": {
                     "prefill": {
                             "dp_size": 4,
@@ -976,9 +975,8 @@ Before you start, please
       sysctl -w kernel.numa_balancing=0
       sysctl kernel.sched_migration_cost_ns=50000
       
-      export USE_MULTI_GROUPS_KV_CACHE=1
-      export USE_MULTI_BLOCK_POOL=1
       export ASCEND_RT_VISIBLE_DEVICES=$1
+      export VLLM_ASCEND_APPLY_DSV4_PATCH=1
       
       vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-mtp \
           --host 0.0.0.0 \
@@ -995,6 +993,7 @@ Before you start, please
           --max-num-batched-tokens 120 \
           --max-num-seqs 60 \
           --async-scheduling \
+          --block-size 128 \
           --no-disable-hybrid-kv-cache-manager \
           --trust-remote-code \
           --gpu-memory-utilization 0.9 \
@@ -1004,15 +1003,15 @@ Before you start, please
           --enable-auto-tool-choice \
           --reasoning-parser deepseek_v4 \
           --safetensors-load-strategy 'prefetch' \
+          --model-loader-extra-config='{"enable_multithread_load": "true", "num_threads": 128}' \
           --no-enable-prefix-caching \
-          --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
+          --speculative-config '{"num_speculative_tokens": 1, "method":"mtp", "enforce_eager": true}' \
           --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
           --kv-transfer-config \
           '{"kv_connector": "MooncakeHybridConnector",
           "kv_role": "kv_consumer",
           "kv_port": "30100",
           "engine_id": "1",
-          "kv_connector_module_path": "vllm_ascend.distributed.mooncake_connector",
           "kv_connector_extra_config": {
                       "prefill": {
                               "dp_size": 4,
@@ -1024,7 +1023,7 @@ Before you start, please
                       }
               }
           }' \
-          --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":true,"multistream_overlap_shared_expert":false,"multistream_dsa_preprocess":false,"recompute_scheduler_enable":true}'
+          --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false}, "enable_cpu_binding":true, "recompute_scheduler_enable":true}'
       ```
 
 Once the preparation is done, you can start the server with the following command on each node:
