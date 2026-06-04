@@ -209,8 +209,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --model-loader-extra-config '{
      "enable_multithread_load": "true",
      "num_threads": 128
-  }' \
-> AllinOne161.log 2>&1 &
+  }'
 ```
 
 **Node1-Node3**
@@ -290,8 +289,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --model-loader-extra-config '{
      "enable_multithread_load": "true",
      "num_threads": 128
-  }' \
-> AllinOne162.log 2>&1 &
+  }'
 ```
 
 ::::
