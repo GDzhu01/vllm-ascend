@@ -195,7 +195,7 @@ export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
 export TASK_QUEUE_ENABLE=1   
 export HCCL_OP_EXPANSION_MODE="AIV"
 
-vllm serve /data/DeepSeek-V4-Flash-w8a8-mtp \
+vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Flash-w8a8-mtp \
     --max_model_len 1048576 \
     --max-num-batched-tokens 10240 \
     --served-model-name dsv4 \
