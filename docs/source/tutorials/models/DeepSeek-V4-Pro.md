@@ -193,7 +193,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --safetensors-load-strategy 'prefetch' \
   --profiler-config '{"profiler": "torch", "torch_profiler_dir": "/path", "torch_profiler_with_stack": false}' \
   --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}' \
-  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":"True"}' \
+  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":true}' \
   --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}'
 ```
 
@@ -260,7 +260,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
   --safetensors-load-strategy 'prefetch' \
   --speculative-config '{"num_speculative_tokens": 1,"method": "mtp"}' \
   --profiler-config '{"profiler": "torch", "torch_profiler_dir": "/path", "torch_profiler_with_stack": false}' \
-  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":"True"}' \
+  --additional-config '{"ascend_compilation_config":{"enable_npugraph_ex":true,"enable_static_kernel":false},"enable_cpu_binding":true}' \
   --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}'
 ```
 
@@ -325,7 +325,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
         "enable_npugraph_ex":true,
         "enable_static_kernel":false
         },
-    "enable_cpu_binding": "true",
+    "enable_cpu_binding": true,
     "multistream_overlap_shared_expert":true}'
 ```
 
@@ -385,7 +385,7 @@ vllm serve /root/.cache/modelscope/hub/models/vllm-ascend/DeepSeek-V4-Pro-w4a8-m
         "enable_npugraph_ex":true,
         "enable_static_kernel":false
         },
-    "enable_cpu_binding": "true",
+    "enable_cpu_binding": true,
     "multistream_overlap_shared_expert":true}'
 
 ```
@@ -557,7 +557,7 @@ Before you start, please
             --block-size 128 \
             --enforce-eager \
             --speculative-config '{"num_speculative_tokens": 1,"method": "mtp","enforce_eager": true}' \
-            --additional-config '{"enable_cpu_binding": "True", "enable_dsa_cp": true}' \
+            --additional-config '{"enable_cpu_binding": true, "enable_dsa_cp": true}' \
             --kv-transfer-config \
             '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_producer",
@@ -629,7 +629,7 @@ Before you start, please
             --block-size 128 \
             --enforce-eager \
             --speculative-config '{"num_speculative_tokens": 1,"method": "mtp","enforce_eager": true}' \
-            --additional-config '{"enable_cpu_binding": "True", "enable_dsa_cp": true}' \
+            --additional-config '{"enable_cpu_binding": true, "enable_dsa_cp": true}' \
             --kv-transfer-config \
             '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_producer",
@@ -928,7 +928,7 @@ Before you start, please
           --enforce-eager \
           --enable-prefix-caching \
           --speculative-config '{"num_speculative_tokens": 1, "method":"deepseek_mtp"}' \
-          --additional_config '{"enable_cpu_binding": "True"}' \
+          --additional_config '{"enable_cpu_binding": true}' \
           --kv-transfer-config \
           '{"kv_connector": "MooncakeHybridConnector",
           "kv_role": "kv_producer",

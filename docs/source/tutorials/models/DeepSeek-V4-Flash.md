@@ -224,7 +224,7 @@ vllm serve /data/DeepSeek-V4-Flash-w8a8-mtp \
         "enable_npugraph_ex":true,
         "enable_static_kernel":false
         },
-    "enable_cpu_binding": "true",
+    "enable_cpu_binding": true,
     "multistream_overlap_shared_expert":true}'
 ```
 
@@ -395,7 +395,7 @@ Before you start, please
             --gpu-memory-utilization 0.9 \
             --quantization ascend \
             --enforce-eager \
-            --additional-config '{"enable_cpu_binding": "True", "enable_shared_expert_dp": true,  "enable_dsa_cp": true}' \
+            --additional-config '{"enable_cpu_binding": true, "enable_shared_expert_dp": true,  "enable_dsa_cp": true}' \
             --kv-transfer-config \
             '{"kv_connector": "MooncakeHybridConnector",
             "kv_role": "kv_producer",
@@ -651,7 +651,7 @@ Before you start, please
         --tool-call-parser deepseek_v4 \
         --enable-auto-tool-choice \
         --reasoning-parser deepseek_v4 \
-        --additional-config '{"enable_cpu_binding":"True"}' \
+        --additional-config '{"enable_cpu_binding": true}' \
         --compilation-config '{"cudagraph_mode": "FULL_DECODE_ONLY"}' \
         --kv-transfer-config \
         '{"kv_connector": "MooncakeHybridConnector",
