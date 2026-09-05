@@ -22,10 +22,53 @@ from vllm.v1.kv_cache_interface import (
     get_kv_cache_spec_kind,
 )
 
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    allocate_cache_config as allocate_v41_cache_config,
+)
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    group_cache_specs as group_v41_cache_specs,
+)
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    has_v41_groups,
+    is_v41_spec,
+)
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    make_cache_groups as make_v41_cache_groups,
+)
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    pool_bytes_per_block as v41_pool_bytes_per_block,
+)
+from vllm_ascend.models.deepseek_v41.kv_cache import (
+    request_blocks as v41_request_blocks,
+)
+
 _KIMI_K3_TARGET_LAYER_PREFIX = "language_model.model.layers."
 _KIMI_K3_DRAFT_LAYER_PREFIX = "model.layers."
 _orig_resolve_kv_cache_block_sizes = vllm.v1.core.kv_cache_utils.resolve_kv_cache_block_sizes
 _orig_get_kv_cache_groups_uniform_page_size = vllm.v1.core.kv_cache_utils._get_kv_cache_groups_uniform_page_size
+_orig_pool_bytes_per_block = vllm.v1.core.kv_cache_utils._pool_bytes_per_block
+_orig_max_memory_from_groups = vllm.v1.core.kv_cache_utils._max_memory_usage_bytes_from_groups
+_orig_max_concurrency = vllm.v1.core.kv_cache_utils.get_max_concurrency_for_kv_cache_config
+
+
+def _ascend_pool_bytes_per_block(vllm_config, groups):
+    if has_v41_groups(groups):
+        return v41_pool_bytes_per_block(groups)
+    return _orig_pool_bytes_per_block(vllm_config, groups)
+
+
+def _ascend_max_memory_from_groups(vllm_config, groups):
+    if has_v41_groups(groups):
+        # Include the global null block in startup admission / max-length sizing.
+        return (v41_request_blocks(vllm_config, groups) + 1) * v41_pool_bytes_per_block(groups)
+    return _orig_max_memory_from_groups(vllm_config, groups)
+
+
+def _ascend_max_concurrency(vllm_config, kv_cache_config):
+    groups = kv_cache_config.kv_cache_groups
+    if has_v41_groups(groups):
+        return max(0, kv_cache_config.num_blocks - 1) / v41_request_blocks(vllm_config, groups)
+    return _orig_max_concurrency(vllm_config, kv_cache_config)
 
 
 if UniformTypeKVCacheSpecs.max_num_blocks_per_req is KVCacheSpec.max_num_blocks_per_req:
@@ -192,6 +235,8 @@ def group_and_unify_kv_cache_specs(
     Group the KV cache specs and unify each group into one UniformTypeKVCacheSpecs.
     Currently, this is only used for DeepseekV4.
     """
+    if (v41_groups := group_v41_cache_specs(kv_cache_spec)) is not None:
+        return v41_groups
     if not any(isinstance(spec, SlidingWindowMLASpec) for spec in kv_cache_spec.values()):
         return None
 
@@ -226,6 +271,8 @@ def _get_kv_cache_groups_uniform_groups(
     Generate the KV cache groups from the grouped specs.
     """
     assert len(grouped_specs) > 0 and all(isinstance(spec, UniformTypeKVCacheSpecs) for spec in grouped_specs)
+    if any(is_v41_spec(s) for g in grouped_specs for s in g.kv_cache_specs.values()):
+        return make_v41_cache_groups(grouped_specs)
     # For now, we restrict the first grouped_spec to be UniformTypeKVCacheSpecs
     # containing only MLAAttentionSpec.
     full_mla_spec = grouped_specs[0]
@@ -328,6 +375,10 @@ def _get_kv_cache_config_deepseek_v4(
     per (tuple_idx, bucket) whose shared_by is the union of per-group
     layers at that slot.
     """
+    if any(is_v41_spec(s) for g in kv_cache_groups
+           if isinstance(g.kv_cache_spec, UniformTypeKVCacheSpecs)
+           for s in g.kv_cache_spec.kv_cache_specs.values()):
+        return allocate_v41_cache_config(vllm_config, kv_cache_groups, available_memory)
     full_mla_spec = kv_cache_groups[0].kv_cache_spec
     assert isinstance(full_mla_spec, UniformTypeKVCacheSpecs)
     page_sizes = sorted(full_mla_spec.get_page_sizes())
@@ -375,6 +426,9 @@ def _get_kv_cache_config_deepseek_v4(
 
 
 vllm.v1.core.kv_cache_utils.resolve_kv_cache_block_sizes = _ascend_resolve_kv_cache_block_sizes
+vllm.v1.core.kv_cache_utils._pool_bytes_per_block = _ascend_pool_bytes_per_block
+vllm.v1.core.kv_cache_utils._max_memory_usage_bytes_from_groups = _ascend_max_memory_from_groups
+vllm.v1.core.kv_cache_utils.get_max_concurrency_for_kv_cache_config = _ascend_max_concurrency
 vllm.v1.core.kv_cache_utils.group_and_unify_kv_cache_specs = group_and_unify_kv_cache_specs
 vllm.v1.core.kv_cache_utils._get_kv_cache_groups_uniform_groups = _get_kv_cache_groups_uniform_groups
 vllm.v1.core.kv_cache_utils._get_kv_cache_groups_uniform_page_size = _get_kv_cache_groups_uniform_page_size
