@@ -152,7 +152,6 @@ from vllm_ascend.eplb.eplb_updator import EplbUpdator
 from vllm_ascend.model_executor.offloader import create_offloader
 from vllm_ascend.models.deepseek_v41.kv_cache import (
     DeepseekV41CacheLayer,
-    DeepseekV41TailSpec,
     is_v41_spec,
     reshape_cache,
 )
@@ -5058,9 +5057,6 @@ class NPUModelRunner(GPUModelRunner):
                 kv_cache_spec = next(iter(kv_cache_spec.kv_cache_specs.values()))
             if isinstance(kv_cache_spec, EncoderOnlyAttentionSpec):
                 continue
-            elif isinstance(kv_cache_spec, DeepseekV41TailSpec):
-                # A fixed request block must not be indexed by position // block_size.
-                self.kernel_block_sizes.append([0])
             elif isinstance(kv_cache_spec, AttentionSpec):
                 # This is an attention backend that supports virtual
                 # block splitting. Get the supported block sizes from

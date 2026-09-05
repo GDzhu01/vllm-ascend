@@ -50,7 +50,7 @@ class DeepseekV41Attention(nn.Module):
         if role.has_long_context:
             kinds.extend((CacheKind.LONG, CacheKind.INDEX))
         if role.is_kv_source and role.compress_ratio == 2:
-            kinds.append(CacheKind.TAIL)
+            kinds.append(CacheKind.STATE)
         self.cache_prefixes = {kind: cache_plan.resource(layer_idx, kind).name for kind in kinds}
 
     def project_output(self, attention_output):

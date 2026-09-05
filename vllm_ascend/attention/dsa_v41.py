@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import torch
 from vllm.v1.attention.backend import AttentionBackend, AttentionMetadata, AttentionMetadataBuilder
 
-from vllm_ascend.models.deepseek_v41.kv_cache import DeepseekV41TailSpec
+from vllm_ascend.models.deepseek_v41.kv_cache import DeepseekV41CompressorStateSpec
 
 
 @dataclass
@@ -18,7 +18,7 @@ class DeepseekV41Metadata(AttentionMetadata):
     slot_mapping: torch.Tensor
     compress_ratio: int
     storage_block_size: int
-    is_tail: bool
+    is_compressor_state: bool
 
 
 def compressed_slot_mapping(slot_mapping: torch.Tensor, ratio: int) -> torch.Tensor:
@@ -33,21 +33,6 @@ def compressed_slot_mapping(slot_mapping: torch.Tensor, ratio: int) -> torch.Ten
     return torch.where(valid, slot_mapping // ratio, -1)
 
 
-def tail_slot_mapping(block_table, query_start_loc, seq_lens, num_tokens):
-    """Fixed request block plus absolute position modulo two; mask padded tokens."""
-    if seq_lens.shape[0] == 0:
-        return torch.full((num_tokens,), -1, dtype=torch.int64, device=block_table.device)
-    query_lens = query_start_loc[1:] - query_start_loc[:-1]
-    token_ids = torch.arange(num_tokens, device=query_start_loc.device)
-    request_ids = torch.bucketize(token_ids, query_start_loc[1:], right=True)
-    safe_requests = request_ids.clamp(max=seq_lens.shape[0] - 1)
-    positions = seq_lens[safe_requests] - query_lens[safe_requests]
-    positions = positions + token_ids - query_start_loc[safe_requests]
-    blocks = block_table[safe_requests, 0]
-    valid = (request_ids < seq_lens.shape[0]) & (blocks > 0)
-    return torch.where(valid, blocks.to(torch.int64) * 2 + positions % 2, -1)
-
-
 class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
     def __init__(self, kv_cache_spec, layer_names, vllm_config, device):
         super().__init__(kv_cache_spec, layer_names, vllm_config, device)
@@ -57,17 +42,10 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             raise NotImplementedError("V4.1 prefix caching is not implemented")
         spec = self.kv_cache_spec
         common = common_attn_metadata
-        is_tail = isinstance(spec, DeepseekV41TailSpec)
+        is_compressor_state = isinstance(spec, DeepseekV41CompressorStateSpec)
         ratio = getattr(spec, "compress_ratio", 1)
-        # Tail uses block_table[:, 0] and absolute position modulo two. Ordinary
-        # slot_mapping cannot index its fixed block after the first token block.
-        slots = (
-            tail_slot_mapping(
-                common.block_table_tensor, common.query_start_loc, common.seq_lens, common.slot_mapping.shape[0]
-            )
-            if is_tail
-            else compressed_slot_mapping(common.slot_mapping, ratio)
-        )
+        # State rows use ordinary SWA token slots, not compressed or circular slots.
+        slots = common.slot_mapping if is_compressor_state else compressed_slot_mapping(common.slot_mapping, ratio)
         return DeepseekV41Metadata(
             common.block_table_tensor,
             common.query_start_loc,
@@ -75,7 +53,7 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
             slots,
             ratio,
             spec.storage_block_size,
-            is_tail,
+            is_compressor_state,
         )
 
 

@@ -13,7 +13,6 @@ from vllm.v1.core.kv_cache_utils import may_override_num_blocks
 from vllm.v1.kv_cache_interface import KVCacheGroupSpec, KVCacheTensor, UniformTypeKVCacheSpecs
 
 from vllm_ascend.core.kv_cache_interface import AscendMLAAttentionSpec, AscendSlidingWindowMLASpec
-from vllm_ascend.models.glm5next.kv_cache import KpoolTailManager, KpoolTailSpec
 
 
 @dataclass(frozen=True)
@@ -173,14 +172,14 @@ class CacheKind(str, Enum):
     SWA = "swa_cache"
     LONG = "long_kv_cache"
     INDEX = "index_k_cache"
-    TAIL = "compressor_state"
+    STATE = "compressor.state_cache"
 
 
 class CacheGroup(str, Enum):
     SWA = "swa"
     COMPRESSED = "full_ratio2"
     FULL = "full_ratio1"
-    TAIL = "tail"
+    STATE = "compressor_state"
 
 
 def text_config_of(config: Any) -> Any:
@@ -215,7 +214,7 @@ class DeepseekV41CachePlan:
 
     def resource(self, layer: int, kind: CacheKind) -> DeepseekV41CacheResource:
         role = self.topology.layer(layer)
-        owner = layer if kind in (CacheKind.SWA, CacheKind.TAIL) else role.kv_source_layer
+        owner = layer if kind in (CacheKind.SWA, CacheKind.STATE) else role.kv_source_layer
         for resource in self.resources:
             if resource.owner == owner and resource.kind == kind:
                 return resource
@@ -267,7 +266,15 @@ def build_cache_plan(config: Any, block_size: int, prefix: str = "model") -> Dee
         add(role.layer_idx, CacheKind.INDEX, group, block_size // ratio, index_size, ratio)
         if ratio == 2:
             # Each row holds concatenated raw KV and gate score; not K and V.
-            add(role.layer_idx, CacheKind.TAIL, CacheGroup.TAIL, ratio, 2 * head_size, ratio, "float32")
+            add(
+                role.layer_idx,
+                CacheKind.STATE,
+                CacheGroup.STATE,
+                block_size,
+                2 * head_size,
+                dtype="float32",
+                sliding_window=ratio,
+            )
     return DeepseekV41CachePlan(topology, tuple(resources), prefix)
 
 
@@ -288,40 +295,29 @@ class DeepseekV41SWASpec(AscendSlidingWindowMLASpec):
 
 
 @dataclass(frozen=True, kw_only=True)
-class DeepseekV41TailSpec(KpoolTailSpec):
-    # One request-owned block with two raw slots; block_size stays in raw tokens.
-    @property
-    def storage_block_size(self):
-        return 2
+class DeepseekV41CompressorStateSpec(AscendSlidingWindowMLASpec):
+    """V4-style FP32 KV/score rows, retained by SlidingWindowManager.
 
-    @property
-    def real_page_size_bytes(self):
-        return self.storage_block_size * self.num_kv_heads * self.head_size * 4
-
-    def max_memory_usage_bytes(self, vllm_config):
-        return self.page_size_bytes
+    State is not compressed: one row per original token, two vectors per row.
+    Only pooling has ratio2; the storage compression ratio remains one.
+    """
 
     def is_uniform_with_collection(self, specs):
-        return all(isinstance(s, DeepseekV41TailSpec) for s in specs.values())
-
-
-class DeepseekV41TailManager(KpoolTailManager):
-    """Request-private fixed block; no prefix hits or sliding-window eviction.
-
-    The V4.1 model integration rejects PD and speculative decoding. Inheriting
-    allocation lifetime does not advertise either execution feature.
-    """
+        return all(
+            isinstance(s, DeepseekV41CompressorStateSpec) and s.sliding_window == self.sliding_window
+            for s in specs.values()
+        )
 
 
 def is_v41_spec(spec):
-    return isinstance(spec, (DeepseekV41FullSpec, DeepseekV41SWASpec, DeepseekV41TailSpec))
+    return isinstance(spec, (DeepseekV41FullSpec, DeepseekV41SWASpec, DeepseekV41CompressorStateSpec))
 
 
 def group_key(spec):
     if isinstance(spec, DeepseekV41SWASpec):
         return CacheGroup.SWA
-    if isinstance(spec, DeepseekV41TailSpec):
-        return CacheGroup.TAIL
+    if isinstance(spec, DeepseekV41CompressorStateSpec):
+        return CacheGroup.STATE
     if isinstance(spec, DeepseekV41FullSpec):
         return CacheGroup.COMPRESSED if spec.compress_ratio == 2 else CacheGroup.FULL
     raise TypeError(f"Not a V4.1 cache spec: {type(spec)}")
@@ -333,8 +329,8 @@ def build_cache_specs(plan: DeepseekV41CachePlan):
         kwargs = dict(block_size=r.block_size, num_kv_heads=1, head_size=r.head_size, dtype=getattr(torch, r.dtype))
         if r.kind == CacheKind.SWA:
             spec = DeepseekV41SWASpec(**kwargs, sliding_window=r.sliding_window)
-        elif r.kind == CacheKind.TAIL:
-            spec = DeepseekV41TailSpec(**kwargs, sliding_window=2)
+        elif r.kind == CacheKind.STATE:
+            spec = DeepseekV41CompressorStateSpec(**kwargs, sliding_window=r.sliding_window)
         else:
             spec = DeepseekV41FullSpec(**kwargs, compress_ratio=r.compress_ratio)
         specs[r.name] = spec
@@ -462,6 +458,24 @@ class DeepseekV41CacheLayer(nn.Module, AttentionLayerBase):
         return DeepseekV41CacheBackend
 
 
+class DeepseekV41CompressorStateCache(DeepseekV41CacheLayer):
+    """State-cache module with the same paged vector layout used by V4.
+
+    Pass kv_cache[0].squeeze(-2) and the state's block table to the compressor.
+    The V4 constructor itself cannot be reused: it asserts ratio in (4, 128).
+    """
+
+    def __init__(self, prefix, spec):
+        if spec.dtype != torch.float32 or spec.compress_ratio != 1 or spec.sliding_window != 2:
+            raise ValueError("V4.1 compressor state requires FP32 uncompressed rows and window two")
+        super().__init__(prefix, spec)
+        self.state_dim = spec.head_size
+        self.dtype = spec.dtype
+        self.compress_ratio = 2  # Pooling ratio; spec storage ratio remains one.
+        self.block_size = spec.block_size
+        self.sliding_window = spec.sliding_window
+
+
 class DeepseekV41ModelCaches(nn.Module):
     """One registered cache module per actual backbone resource, never per reader.
 
@@ -480,17 +494,19 @@ class DeepseekV41ModelCaches(nn.Module):
         duplicates = specs.keys() & context.keys()
         if duplicates:
             raise ValueError(f"Duplicate V4.1 cache prefixes: {sorted(duplicates)}")
-        self.owners = nn.ModuleList([DeepseekV41CacheLayer(name, spec) for name, spec in specs.items()])
+        self.owners = nn.ModuleList(
+            [
+                (
+                    DeepseekV41CompressorStateCache
+                    if isinstance(spec, DeepseekV41CompressorStateSpec)
+                    else DeepseekV41CacheLayer
+                )(name, spec)
+                for name, spec in specs.items()
+            ]
+        )
         self._owner_indices = {module.prefix: idx for idx, module in enumerate(self.owners)}
         context.update({module.prefix: module for module in self.owners})
 
     def resolve(self, layer: int, kind: CacheKind) -> DeepseekV41CacheLayer:
         name = self.plan.resource(layer, kind).name
         return self.owners[self._owner_indices[name]]
-
-    def reset_tail(self, layer: int, block_ids: torch.Tensor):
-        """Explicit lifecycle hook: call on admission/recompute, never each step."""
-        cache = self.resolve(layer, CacheKind.TAIL).kv_cache[0]
-        width = cache.shape[-1] // 2
-        cache[block_ids, :, :, :width] = 0
-        cache[block_ids, :, :, width:] = -torch.inf
