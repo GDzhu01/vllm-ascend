@@ -3,8 +3,7 @@
 
 import pytest
 
-from vllm_ascend.models.deepseek_v41.layer_plan import build_layer_plan
-from vllm_ascend.models.deepseek_v41.model import DeepseekV41ModelContext
+from vllm_ascend.models.deepseek_v41.kv_cache import build_layer_plan
 
 
 @pytest.fixture
@@ -36,18 +35,13 @@ def test_builds_expected_source_groups(text_config: dict):
 
 
 def test_layer_26_resolves_layer_20_kv_and_layer_24_index(text_config: dict):
-    context = DeepseekV41ModelContext(text_config)
-    topology = context.topology
-    modules = [object() for _ in topology.layers]
-    for layer_idx, module in enumerate(modules):
-        context.bind_attention(layer_idx, module)
-
-    sources = context.sources_for(26)
-    assert sources.kv_source is modules[20]
-    assert sources.index_source is modules[24]
-    assert sources.candidate_source is modules[20]
-    assert sources.role.compress_ratio == 1
-    assert sources.role.uses_candidate_filter
+    topology = build_layer_plan(text_config)
+    role = topology.layer(26)
+    assert role.kv_source_layer == 20
+    assert role.index_source_layer == 24
+    assert topology.candidate_source_layer == 20
+    assert role.compress_ratio == 1
+    assert role.uses_candidate_filter
 
 
 def test_source_roles_and_engram_slots(text_config: dict):

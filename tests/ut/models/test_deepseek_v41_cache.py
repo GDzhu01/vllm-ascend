@@ -8,16 +8,19 @@ import pytest
 import torch
 
 from vllm_ascend.attention.dsa_v41 import compressed_slot_mapping, tail_slot_mapping
-from vllm_ascend.models.deepseek_v41.cache_layer import DeepseekV41ModelCaches
-from vllm_ascend.models.deepseek_v41.cache_plan import CacheGroup, CacheKind, build_cache_plan
+from vllm_ascend.models.deepseek_v41.compressor import DeepseekV41Compressor
 from vllm_ascend.models.deepseek_v41.kv_cache import (
+    CacheGroup,
+    CacheKind,
+    DeepseekV41ModelCaches,
     allocate_cache_config,
+    build_cache_plan,
     build_cache_specs,
     group_cache_specs,
     make_cache_groups,
     reshape_cache,
 )
-from vllm_ascend.models.deepseek_v41.layers import DeepseekV41Attention, DeepseekV41Compressor
+from vllm_ascend.models.deepseek_v41.model import DeepseekV41Attention
 
 
 @pytest.fixture

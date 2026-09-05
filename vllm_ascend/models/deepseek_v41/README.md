@@ -20,6 +20,12 @@ Do not use this branch as a claim of checkpoint-loading or inference support.
 
 ## Integration contract
 
+The package follows the V4 layout: `model.py` contains attention parameters and
+source references, `compressor.py` and `indexer.py` own their model components,
+and `kv_cache.py` contains the complete cache initialization contract. Backend
+metadata remains in `vllm_ascend/attention/dsa_v41.py`. There is no separate
+model context or attention-graph wrapper.
+
 Attach `DeepseekV41ModelCaches(vllm_config, prefix)` **once** to the model.
 Construct `DeepseekV41Attention(text_config, layer_idx, caches.plan)` per layer.
 Cache owners are registered under complete attention resource prefixes in
