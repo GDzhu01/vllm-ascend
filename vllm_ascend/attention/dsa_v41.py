@@ -5,9 +5,11 @@
 from dataclasses import dataclass
 
 import torch
+from torch import nn
+from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
 from vllm.v1.attention.backend import AttentionBackend, AttentionMetadata, AttentionMetadataBuilder
 
-from vllm_ascend.models.deepseek_v41.kv_cache import DeepseekV41CompressorStateSpec
+from vllm_ascend.core.deepseek_v41 import DeepseekV41CompressorStateSpec
 
 
 @dataclass
@@ -75,3 +77,23 @@ class DeepseekV41CacheBackend(AttentionBackend):
     @staticmethod
     def get_kv_cache_shape(num_blocks, block_size, num_kv_heads, head_size, cache_dtype_str="auto"):
         return num_blocks, block_size, num_kv_heads, head_size
+
+
+class DeepseekV41CacheLayer(nn.Module, AttentionLayerBase):
+    supports_dcp = False
+
+    def __init__(self, vllm_config, prefix, spec):
+        super().__init__()
+        self.prefix = prefix
+        self.spec = spec
+        self.kv_cache = [torch.empty(0)]
+        context = vllm_config.compilation_config.static_forward_context
+        if prefix in context:
+            raise ValueError(f"Duplicate V4.1 cache prefix: {prefix}")
+        context[prefix] = self
+
+    def get_kv_cache_spec(self, vllm_config):
+        return self.spec
+
+    def get_attn_backend(self):
+        return DeepseekV41CacheBackend

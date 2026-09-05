@@ -3,7 +3,7 @@
 
 import pytest
 
-from vllm_ascend.models.deepseek_v41.kv_cache import build_layer_plan
+from vllm_ascend.models.deepseek_v41.model import build_layer_plan
 
 
 @pytest.fixture

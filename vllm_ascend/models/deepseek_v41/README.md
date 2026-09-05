@@ -20,16 +20,20 @@ Do not use this branch as a claim of checkpoint-loading or inference support.
 
 ## Integration contract
 
-The package follows the V4 layout: `model.py` contains attention parameters and
-source references, `compressor.py` and `indexer.py` own their model components,
-and `kv_cache.py` contains the complete cache initialization contract. Backend
-metadata remains in `vllm_ascend/attention/dsa_v41.py`. There is no separate
-model context or attention-graph wrapper.
+The package follows V4's component ownership. Construct
+`DeepseekV41Attention(text_config, layer_idx, vllm_config, prefix)` per layer:
 
-Attach `DeepseekV41ModelCaches(vllm_config, prefix)` **once** to the model.
-Construct `DeepseekV41Attention(text_config, layer_idx, caches.plan)` per layer.
-Cache owners are registered under complete attention resource prefixes in
-`static_forward_context`; attention modules retain only those prefix strings.
+- `model.py`: Attention owns local SWA and, at source layers, long KV.
+- `compressor.py`: the ratio2 Compressor owns `state_cache`; ratio1 has none.
+- `indexer.py`: source Indexers own `k_cache`; query-only Indexers have none.
+- `attention/dsa_v41.py`: cache-layer registration, layout and metadata.
+- `core/deepseek_v41.py`: CacheSpecs, hybrid grouping, sizing and allocation.
+
+There is no model-side `kv_cache.py`, centralized cache owner, or cache-plan
+construction pass. Each component registers its cache under its full prefix in
+`static_forward_context`, like V4. Consumers retain source-prefix references
+instead of registering duplicate cache modules. The runner collects specs from
+these actual component-owned modules; the framework groups them afterward.
 
 The first implementation requires model runner V1, eager, single rank,
 hybrid cache management, and BF16 cache storage. It rejects prefix caching,

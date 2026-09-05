@@ -226,7 +226,7 @@ class AscendSlidingWindowMLASpec(SlidingWindowMLASpec):
 
 
 def register_ascend_kv_cache_specs() -> None:
-    from vllm_ascend.models.deepseek_v41.kv_cache import (
+    from vllm_ascend.core.deepseek_v41 import (
         DeepseekV41CompressorStateSpec,
         DeepseekV41FullSpec,
         DeepseekV41SWASpec,

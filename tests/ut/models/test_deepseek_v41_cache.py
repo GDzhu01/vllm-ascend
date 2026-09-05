@@ -1,25 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-from collections import Counter
 from types import SimpleNamespace
 
 import pytest
 import torch
 
 from vllm_ascend.attention.dsa_v41 import DeepseekV41MetadataBuilder, compressed_slot_mapping
-from vllm_ascend.models.deepseek_v41.compressor import DeepseekV41Compressor
-from vllm_ascend.models.deepseek_v41.kv_cache import (
-    CacheGroup,
-    CacheKind,
-    DeepseekV41ModelCaches,
+from vllm_ascend.core.deepseek_v41 import (
     allocate_cache_config,
-    build_cache_plan,
-    build_cache_specs,
     group_cache_specs,
     make_cache_groups,
     reshape_cache,
 )
+from vllm_ascend.models.deepseek_v41.compressor import DeepseekV41Compressor
 from vllm_ascend.models.deepseek_v41.model import DeepseekV41Attention
 
 
@@ -70,33 +64,49 @@ def runtime(config):
     )
 
 
-def test_owner_counts_nested_config_and_source_resolution(config):
-    plan = build_cache_plan({"text_config": config}, 64)
-    assert len(plan.resources) == 51
-    assert Counter(r.kind for r in plan.resources) == {
-        CacheKind.SWA: 40,
-        CacheKind.LONG: 4,
-        CacheKind.INDEX: 4,
-        CacheKind.STATE: 3,
+def construct_layers(runtime, prefix="model"):
+    config = runtime.model_config.hf_text_config
+    return [
+        DeepseekV41Attention(config, i, runtime, f"{prefix}.layers.{i}.self_attn")
+        for i in range(config["num_hidden_layers"])
+    ]
+
+
+def collect_specs(runtime):
+    construct_layers(runtime)
+    return {
+        name: module.get_kv_cache_spec(runtime)
+        for name, module in runtime.compilation_config.static_forward_context.items()
     }
-    assert [len(members) for members in plan.groups().values()] == [40, 6, 2, 3]
-    assert plan.resource(26, CacheKind.INDEX).owner == 20
-    assert plan.resource(26, CacheKind.LONG).owner == 20
-    assert plan.resource(26, CacheKind.SWA).owner == 26
-    assert plan.resource(20, CacheKind.LONG).storage_rows == 64
-    assert plan.resource(2, CacheKind.LONG).storage_rows == 32
-    with pytest.raises(ValueError, match="no compressor.state_cache"):
-        plan.resource(20, CacheKind.STATE)
+
+
+def test_owner_counts_nested_config_and_source_resolution(config, runtime):
+    layers = construct_layers(runtime)
+    context = runtime.compilation_config.static_forward_context
+    assert len(context) == 51
+    assert sum(hasattr(layer, "long_kv_cache") for layer in layers) == 4
+    assert sum(layer.indexer is not None and hasattr(layer.indexer, "k_cache") for layer in layers) == 4
+    assert sum(layer.compressor is not None and hasattr(layer.compressor, "state_cache") for layer in layers) == 3
+    assert context[layers[26].long_kv_source_prefix] is layers[20].long_kv_cache
+    assert context[layers[26].index_k_source_prefix] is layers[20].indexer.k_cache
+    assert layers[26].swa_cache is not layers[20].swa_cache
+    assert layers[20].long_kv_cache.spec.storage_block_size == 64
+    assert layers[2].long_kv_cache.spec.storage_block_size == 32
+    assert not hasattr(layers[20].compressor, "state_cache")
+    with pytest.raises(ValueError, match="Duplicate"):
+        DeepseekV41Attention({"text_config": config}, 2, runtime)
+    assert len(context) == 51
 
 
 @pytest.mark.parametrize("block_size", [0, -2, 3, 63])
-def test_invalid_block_sizes(config, block_size):
+def test_invalid_block_sizes(config, runtime, block_size):
+    runtime.cache_config.block_size = block_size
     with pytest.raises(ValueError, match="multiple of two"):
-        build_cache_plan(config, block_size)
+        DeepseekV41Attention(config, 0, runtime)
 
 
 def test_four_groups_and_exact_physical_accounting(config, runtime):
-    specs = build_cache_specs(build_cache_plan(config, 64))
+    specs = collect_specs(runtime)
     uniform = group_cache_specs(specs)
     assert [len(g.kv_cache_specs) for g in uniform] == [40, 6, 2, 3]
     assert [g.block_size for g in uniform] == [64] * 4
@@ -115,34 +125,37 @@ def test_four_groups_and_exact_physical_accounting(config, runtime):
         assert cache.data_ptr() == raw.data_ptr()
 
 
-def test_mixed_layouts_rejected(config):
-    specs = build_cache_specs(build_cache_plan(config, 64))
+def test_mixed_layouts_rejected(config, runtime):
+    specs = collect_specs(runtime)
     specs["foreign"] = object()
     with pytest.raises(ValueError, match="foreign"):
         group_cache_specs(specs)
 
 
 def test_unsafe_override_rejected(config, runtime):
-    groups = make_cache_groups(group_cache_specs(build_cache_specs(build_cache_plan(config, 64))))
+    groups = make_cache_groups(group_cache_specs(collect_specs(runtime)))
     runtime.cache_config.num_gpu_blocks_override = 100
     with pytest.raises(ValueError, match="unsafe block override"):
         allocate_cache_config(runtime, groups, 1)
 
 
 def test_model_registration_and_binding(runtime):
-    caches = DeepseekV41ModelCaches(runtime, "language_model.model")
-    assert len(runtime.compilation_config.static_forward_context) == 51
-    assert len(list(caches.named_buffers())) == 0  # No max-sequence allocation in __init__.
-    assert caches.resolve(26, CacheKind.INDEX) is caches.resolve(20, CacheKind.INDEX)
-    assert caches.resolve(26, CacheKind.SWA) is not caches.resolve(20, CacheKind.SWA)
-    assert all(module.kv_cache[0].numel() == 0 for module in caches.owners)
-    with pytest.raises(ValueError, match="Duplicate"):
-        DeepseekV41ModelCaches(runtime, "language_model.model")
-    assert len(runtime.compilation_config.static_forward_context) == 51
-    state = caches.resolve(2, CacheKind.STATE)
+    layers = construct_layers(runtime, "language_model.model")
+    context = runtime.compilation_config.static_forward_context
+    assert len(context) == 51
+    assert all(module.kv_cache[0].numel() == 0 for module in context.values())
+    state = layers[2].compressor.state_cache
+    assert state is context["language_model.model.layers.2.self_attn.compressor.state_cache"]
     assert state.spec.sliding_window == 2
     assert state.spec.storage_block_size == 64
     assert state.state_dim == 16
+    # Each cache is registered once and belongs to its actual component.
+    modules = torch.nn.ModuleList(layers)
+    owned_names = [name for name, module in modules.named_modules() if hasattr(module, "kv_cache")]
+    assert len(owned_names) == 51
+    assert "2.compressor.state_cache" in owned_names
+    assert "2.indexer.k_cache" in owned_names
+    assert "2.long_kv_cache" in owned_names
 
 
 @pytest.mark.parametrize("feature", ["prefix", "spec", "pd", "pp", "v2", "graph"])
@@ -160,7 +173,7 @@ def test_unsupported_runtime_fails_before_registration(runtime, feature):
     else:
         runtime.model_config.enforce_eager = False
     with pytest.raises(NotImplementedError):
-        DeepseekV41ModelCaches(runtime)
+        DeepseekV41Attention(runtime.model_config.hf_text_config, 0, runtime)
     assert not runtime.compilation_config.static_forward_context
 
 
@@ -171,7 +184,7 @@ def test_compression_slot_mapping():
 
 
 def test_state_metadata_keeps_original_token_slots(config, runtime):
-    specs = build_cache_specs(build_cache_plan(config, 64))
+    specs = collect_specs(runtime)
     spec = specs["model.layers.2.self_attn.compressor.state_cache"]
     builder = DeepseekV41MetadataBuilder(spec, [], runtime, torch.device("cpu"))
     slots = torch.tensor([7 * 64 + 63, 3 * 64, -1])
@@ -188,9 +201,8 @@ def test_state_metadata_keeps_original_token_slots(config, runtime):
     assert metadata.storage_block_size == 64
 
 
-def test_actual_attention_parameter_ownership(config):
-    plan = build_cache_plan(config, 64)
-    layers = {i: DeepseekV41Attention(config, i, plan) for i in (0, 2, 20, 24, 26)}
+def test_actual_attention_parameter_ownership(config, runtime):
+    layers = {i: DeepseekV41Attention(config, i, runtime) for i in (0, 2, 20, 24, 26)}
     assert layers[0].compressor is None and layers[0].indexer is None
     assert hasattr(layers[2].compressor, "wgate")
     assert not hasattr(layers[20].compressor, "wgate")
@@ -198,7 +210,7 @@ def test_actual_attention_parameter_ownership(config):
     assert not layers[24].indexer.owns_k
     assert not hasattr(layers[24].indexer, "wk")
     assert layers[26].indexer is None
-    assert layers[26].cache_prefixes[CacheKind.INDEX] == layers[20].cache_prefixes[CacheKind.INDEX]
+    assert layers[26].index_k_source_prefix == layers[20].index_k_source_prefix
     assert layers[2].project_output(torch.zeros(3, 4, 8, dtype=torch.bfloat16)).shape == (3, 16)
     with pytest.raises(NotImplementedError, match="not connected"):
         layers[2](torch.zeros(1, 16))
@@ -227,11 +239,10 @@ def test_compressor_chunk_boundary_matches_vector_reference(config, chunks):
 
 
 def test_state_uses_swa_memory_and_block_table_rules(config, runtime):
+    from vllm_ascend.core.deepseek_v41 import DeepseekV41CompressorStateSpec
     from vllm_ascend.core.kv_cache_interface import AscendSlidingWindowMLASpec
-    from vllm_ascend.models.deepseek_v41.kv_cache import DeepseekV41CompressorStateSpec
 
-    plan = build_cache_plan(config, 64)
-    spec = build_cache_specs(plan)[plan.resource(2, CacheKind.STATE).name]
+    spec = collect_specs(runtime)["model.layers.2.self_attn.compressor.state_cache"]
     assert isinstance(spec, AscendSlidingWindowMLASpec)
     assert isinstance(spec, DeepseekV41CompressorStateSpec)
     assert spec.sliding_window == 2
@@ -244,7 +255,7 @@ def test_state_uses_swa_memory_and_block_table_rules(config, runtime):
     expected_pages = spec.max_admission_blocks_per_request(128, 1024)
     assert spec.max_memory_usage_bytes(runtime) == expected_pages * spec.page_size_bytes
     assert expected_pages > 1
-    assert CacheGroup.STATE in plan.groups()
+    assert spec.sliding_window != config["sliding_window"]
 
 
 @torch.inference_mode()
@@ -270,8 +281,8 @@ def test_state_registers_standard_sliding_window_manager(monkeypatch):
     from vllm.v1.core.single_type_kv_cache_manager import SlidingWindowManager
     from vllm.v1.kv_cache_spec_registry import KVCacheSpecRegistry
 
+    from vllm_ascend.core.deepseek_v41 import DeepseekV41CompressorStateSpec
     from vllm_ascend.core.kv_cache_interface import register_ascend_kv_cache_specs
-    from vllm_ascend.models.deepseek_v41.kv_cache import DeepseekV41CompressorStateSpec
 
     registrations = {}
 

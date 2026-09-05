@@ -22,23 +22,23 @@ from vllm.v1.kv_cache_interface import (
     get_kv_cache_spec_kind,
 )
 
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     allocate_cache_config as allocate_v41_cache_config,
 )
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     group_cache_specs as group_v41_cache_specs,
 )
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     has_v41_groups,
     is_v41_spec,
 )
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     make_cache_groups as make_v41_cache_groups,
 )
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     pool_bytes_per_block as v41_pool_bytes_per_block,
 )
-from vllm_ascend.models.deepseek_v41.kv_cache import (
+from vllm_ascend.core.deepseek_v41 import (
     request_blocks as v41_request_blocks,
 )
 
