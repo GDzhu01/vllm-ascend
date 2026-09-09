@@ -338,8 +338,6 @@ def validate_cache_runtime(vllm_config):
         per_batch = getattr(speculative, "num_speculative_tokens_per_batch_size", None) or ()
         if any(not 0 <= count <= speculative.num_speculative_tokens for _, _, count in per_batch):
             raise ValueError("Aurora DSpark per-batch speculation must stay within the configured ring-safe maximum")
-    if vllm_config.kv_transfer_config is not None:
-        raise NotImplementedError("V4.1 KV transfer is not implemented")
     parallel = vllm_config.parallel_config
     if any(
         getattr(parallel, name, 1) != 1

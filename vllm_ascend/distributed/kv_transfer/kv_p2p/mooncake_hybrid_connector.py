@@ -1728,7 +1728,7 @@ class MooncakeConnectorWorker:
                     cur_tensor_group_idx.append(layer_group_idx[layer_name])
                     kv_cache_tuple = kv_caches[layer_name]
                     if not isinstance(kv_cache_tuple, (tuple, list)):
-                        kv_cache_tuple = kv_cache_tuple
+                        kv_cache_tuple = [kv_cache_tuple]
                     for single_tensor in kv_cache_tuple:
                         tensor_addr = single_tensor.data_ptr()
                         if tensor_addr in share_tensor_addr or tensor_addr in self.kv_caches_base_addr:
@@ -1741,7 +1741,7 @@ class MooncakeConnectorWorker:
                 self.block_stride_per_addr.append(share_tensor_stride[0])
                 self.block_len_per_addr.append(share_tensor_stride[0])
                 ptrs.append(min(share_tensor_addr))
-                lengths.append(kv_cache_tensor.size)
+                lengths.append(share_tensor_stride[0] * self.num_blocks)
         else:
             raise TypeError("Mooncake connector does not support this type kv_cache now.")
 
