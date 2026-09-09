@@ -10,6 +10,15 @@ _HISTORY_SLAB_MIN_TOKENS = 16
 _PAGE_WRITE_NUMPY_MIN_TOKENS = 16
 
 
+def valid_engram_token_mask(
+    input_ids: torch.Tensor,
+    image_token_id: int,
+    image_pad_token_id: int,
+) -> torch.Tensor:
+    """Exclude the complete V4.1 image region from n-gram history."""
+    return (input_ids != image_token_id) & (input_ids != image_pad_token_id)
+
+
 def find_next_prime(start: int, seen_primes: set[int]) -> int:
     """The smallest prime above `start` that has not been handed out yet."""
     candidate = start + 1
@@ -153,6 +162,11 @@ class PagedNgramHistory:
         self.token_map = torch.tensor(token_map, dtype=torch.int64)
         self.pad_id = token_map[config.engram_pad_id]
         self.image_token_id = config.image_token_id
+        self.image_pad_token_id = getattr(
+            config,
+            "image_pad_token_id",
+            self.image_token_id + 1,
+        )
         self.primes = torch.tensor(layout.primes)
         sizes = self.primes.flatten(1)
         self.offsets = sizes.cumsum(-1) - sizes
@@ -171,7 +185,11 @@ class PagedNgramHistory:
                 torch.empty(0, dtype=torch.bool, device="cpu"),
             )
         compressed = self.token_map[input_ids]
-        mask = input_ids != self.image_token_id
+        mask = valid_engram_token_mask(
+            input_ids,
+            self.image_token_id,
+            self.image_pad_token_id,
+        )
         compressed = compressed.masked_fill(~mask, -1)
         # Materialize CPU lists once for sequential page writes and small-batch
         # history reads.

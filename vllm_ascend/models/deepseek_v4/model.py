@@ -363,7 +363,7 @@ class DeepseekV4MoE(nn.Module):
             swiglu_limit=self.swiglu_limit,
             e_score_correction_bias=self.gate.e_score_correction_bias,
             bias_vl=self.gate.bias_vl,
-            image_sentinel_lo=129257,
+            image_sentinel_lo=getattr(config, "image_sentinel_base_id", 129257),
             enable_eplb=self.enable_eplb,
             num_redundant_experts=self.n_redundant_experts,
             is_sequence_parallel=self.is_sequence_parallel,
