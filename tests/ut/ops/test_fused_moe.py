@@ -327,7 +327,7 @@ def test_unquantized_apply_builds_current_fused_experts_input(monkeypatch, moe_c
     result = method.apply(
         layer=layer,
         x=hidden_states,
-        topk_weights=topk_weights.to(hidden_states.dtype),
+        topk_weights=topk_weights,
         topk_ids=topk_ids,
         shared_experts=None,
         shared_experts_input=None,
@@ -336,7 +336,8 @@ def test_unquantized_apply_builds_current_fused_experts_input(monkeypatch, moe_c
     assert result is routed_out
     fused_input = moe_comm_method.fused_experts.call_args.kwargs["fused_experts_input"]
     assert fused_input.hidden_states is hidden_states
-    torch.testing.assert_close(fused_input.topk_weights, topk_weights.to(hidden_states.dtype))
+    assert fused_input.topk_weights is topk_weights
+    assert fused_input.topk_weights.dtype == torch.float32
     assert torch.equal(fused_input.topk_ids, topk_ids)
     assert fused_input.routing.apply_router_weight_on_input
     assert fused_input.activation == "gelu"
@@ -500,7 +501,7 @@ def test_local_shared_expert_dp_reduces_partial_routed_output(
 
 def test_routed_experts_select_experts_validates_router_logits(monkeypatch):
     routed_experts = AscendRoutedExperts.__new__(AscendRoutedExperts)
-    hidden_states = torch.randn(2, 4)
+    hidden_states = torch.randn(2, 4, dtype=torch.float16)
     router_logits = torch.randn(2, 3)
     input_ids = torch.tensor([11, 22])
     topk_weights = torch.randn(2, 2, dtype=torch.float32)
@@ -513,6 +514,7 @@ def test_routed_experts_select_experts_validates_router_logits(monkeypatch):
     monkeypatch.setattr(routed_experts_module, "get_forward_context", lambda: SimpleNamespace(input_ids=None))
     monkeypatch.setattr(routed_experts_module, "get_current_vllm_config", lambda: None)
     monkeypatch.setattr(routed_experts_module, "get_moe_num_logical_experts", lambda *args, **kwargs: 3)
+    monkeypatch.setattr(routed_experts_module, "get_ascend_config", lambda: SimpleNamespace(enable_force_eplb=False))
 
     result_weights, result_ids = routed_experts._select_experts(
         hidden_states=hidden_states,
@@ -521,9 +523,30 @@ def test_routed_experts_select_experts_validates_router_logits(monkeypatch):
         input_ids=input_ids,
     )
 
-    torch.testing.assert_close(result_weights, topk_weights.to(hidden_states.dtype))
+    assert result_weights is topk_weights
+    assert result_weights.dtype == torch.float32
     assert torch.equal(result_ids, topk_ids)
     assert routed_experts.router._select_experts.call_args.kwargs["input_ids"] is input_ids
+
+
+def test_grouped_topk_router_preserves_routing_weight_dtype():
+    router = AscendGroupedTopKRouter(
+        top_k=2,
+        global_num_experts=4,
+        num_expert_group=None,
+        topk_group=None,
+    )
+    hidden_states = torch.randn(2, 4, dtype=torch.float16)
+    router_logits = torch.randn(2, 4, dtype=torch.float32)
+
+    topk_weights, topk_ids = router._compute_routing(
+        hidden_states=hidden_states,
+        router_logits=router_logits,
+        indices_type=None,
+    )
+
+    assert topk_weights.dtype == router_logits.dtype
+    assert topk_ids.dtype == torch.int32
 
 
 def _build_routing_replay_experts(router, log2phy):
@@ -552,6 +575,7 @@ def test_routing_replay_captures_logical_ids_before_ascend_mapping(monkeypatch):
         "get_moe_num_logical_experts",
         lambda *args, **kwargs: 4,
     )
+    monkeypatch.setattr(routed_experts_module, "get_ascend_config", lambda: SimpleNamespace(enable_force_eplb=False))
     hidden_states = torch.randn(2, 4)
     router_logits = torch.tensor(
         [[0.1, 0.9, 0.2, 0.8], [0.7, 0.2, 0.6, 0.1]],
@@ -584,6 +608,7 @@ def test_routing_replay_disabled_keeps_ascend_routing_unchanged(monkeypatch):
         "get_moe_num_logical_experts",
         lambda *args, **kwargs: 4,
     )
+    monkeypatch.setattr(routed_experts_module, "get_ascend_config", lambda: SimpleNamespace(enable_force_eplb=False))
     hidden_states = torch.randn(2, 4)
     router_logits = torch.tensor(
         [[0.1, 0.9, 0.2, 0.8], [0.7, 0.2, 0.6, 0.1]],
@@ -601,9 +626,10 @@ def test_routing_replay_disabled_keeps_ascend_routing_unchanged(monkeypatch):
     torch.testing.assert_close(physical_ids, log2phy[expected_logical_ids])
 
 
-def test_hash_router_uses_explicit_input_ids(monkeypatch):
+@pytest.mark.parametrize("hidden_dtype", [torch.float16, torch.bfloat16])
+def test_hash_router_preserves_fp32_weights_and_explicit_input_ids(monkeypatch, hidden_dtype):
     input_ids = torch.tensor([11, 22], dtype=torch.int32)
-    hidden_states = torch.randn(2, 4)
+    hidden_states = torch.randn(2, 4, dtype=hidden_dtype)
     router_logits = torch.randn(2, 4)
     topk_weights = torch.randn(2, 2)
     topk_ids = torch.zeros(2, 2, dtype=torch.int32)
@@ -632,14 +658,19 @@ def test_hash_router_uses_explicit_input_ids(monkeypatch):
         tid2eid=torch.ones(32, 4, dtype=torch.int32),
     )
 
-    weights, ids = router._compute_routing(
+    routed_experts = _build_routing_replay_experts(router, None)
+    routed_experts.n_shared_experts = 0
+    monkeypatch.setattr(routed_experts_module, "get_moe_num_logical_experts", lambda *args, **kwargs: 4)
+    monkeypatch.setattr(routed_experts_module, "get_ascend_config", lambda: SimpleNamespace(enable_force_eplb=False))
+    weights, ids = routed_experts._select_experts(
         hidden_states,
         router_logits,
-        torch.int32,
+        enable_force_load_balance=False,
         input_ids=input_ids,
     )
 
     assert weights is topk_weights
+    assert weights.dtype == torch.float32
     assert ids is topk_ids
     torch.testing.assert_close(hash_op.call_args.kwargs["input_ids"], input_ids.to(torch.int64))
     prepare_finalize.all_gather_input_id_with_dp_group.assert_called_once()
@@ -822,13 +853,16 @@ def test_routed_experts_forward_impl_runs_current_flow(monkeypatch, return_with_
         "_EXTRA_CTX",
         SimpleNamespace(
             in_profile_run=False,
+            moe_comm_type=MoECommType.MC2,
             moe_comm_method=moe_comm_method,
             eplb_heat_collection_status=False,
         ),
     )
+    monkeypatch.setattr(routed_experts_module, "activate_moe_comm_method", lambda *args: None)
     monkeypatch.setattr(routed_experts_module, "get_forward_context", lambda: SimpleNamespace(all_moe_layers=None))
     monkeypatch.setattr(routed_experts_module, "get_current_vllm_config", lambda: None)
     monkeypatch.setattr(routed_experts_module, "get_moe_num_logical_experts", lambda *args, **kwargs: 3)
+    monkeypatch.setattr(routed_experts_module, "get_ascend_config", lambda: SimpleNamespace(enable_force_eplb=False))
 
     result = routed_experts.forward_impl(
         hidden_states=hidden_states,
@@ -859,7 +893,7 @@ def test_routed_experts_forward_impl_runs_current_flow(monkeypatch, return_with_
     assert quant_method.apply.call_args.kwargs["x"] is prepared_hidden_states
     torch.testing.assert_close(
         quant_method.apply.call_args.kwargs["topk_weights"],
-        topk_weights.to(hidden_states.dtype),
+        topk_weights,
     )
     assert torch.equal(quant_method.apply.call_args.kwargs["topk_ids"], topk_ids)
     routed_experts.router._select_experts.assert_called_once_with(
