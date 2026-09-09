@@ -103,3 +103,13 @@ class DeepseekV41Config(PretrainedConfig):
         }
         for alias, source in vision_aliases.items():
             setattr(self, alias, getattr(self.vision_config, source, None))
+
+        vision_enabled = bool(self.vision_n_layers)
+        self.image_token_id = int(getattr(self, "image_token_id", 129264))
+        # V4.1 uses one image token for every span role. The adjacent reserved
+        # token is used only for vLLM's ratio-2 compressor-alignment row.
+        self.image_sentinel_base_id = self.image_token_id
+        self.image_pad_token_id = self.image_token_id + 1
+        self.is_mm_prefix_lm = vision_enabled
+        self.mm_prefix_clamp_sliding_window = vision_enabled
+        self.mm_prefix_span_leading_pad_modulus = 2 if vision_enabled else 0
