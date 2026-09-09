@@ -4474,11 +4474,19 @@ class NPUModelRunner(GPUModelRunner):
                     or allocation.shared_by != [p.name for p in slot.placements]
                 ):
                     raise ValueError("V4.1 allocation disagrees with its layer slot")
-                backing = torch.zeros(
-                    allocation.size,
-                    dtype=torch.uint8,
-                    device=self.device,
-                )
+                if self.vllm_config.kv_transfer_config is None:
+                    backing = torch.zeros(
+                        allocation.size,
+                        dtype=torch.uint8,
+                        device=self.device,
+                    )
+                else:
+                    raw_backing = torch.zeros(
+                        allocation.size + alignment,
+                        dtype=torch.uint8,
+                        device=self.device,
+                    )
+                    backing = self._align_memory(raw_backing, alignment)[: allocation.size]
                 for name in allocation.shared_by:
                     kv_cache_raw_tensors[name] = backing
             expected = set(layer_kv_cache_spec)
