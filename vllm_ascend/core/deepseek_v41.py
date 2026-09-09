@@ -323,8 +323,6 @@ def validate_cache_runtime(vllm_config):
         CUDAGraphMode.FULL_DECODE_ONLY,
     ):
         raise NotImplementedError("V4.1 currently supports only eager or FULL_DECODE_ONLY graph mode")
-    if vllm_config.cache_config.enable_prefix_caching:
-        raise NotImplementedError("V4.1 prefix state restoration is not implemented")
     speculative = vllm_config.speculative_config
     if speculative is not None:
         use_dspark = getattr(speculative, "use_dspark", None)

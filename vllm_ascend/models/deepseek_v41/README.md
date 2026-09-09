@@ -133,8 +133,10 @@ The runtime contract is model runner V1, eager or `FULL_DECODE_ONLY` mode,
 BF16 cache, hybrid KV management, PP/DCP/PCP equal to one, and
 tensor/data/expert parallel serving. `FULL_DECODE_ONLY` retains Aurora main's
 eager prefill and full-graph decode dispatch. DSpark is the only supported
-speculative method, subject to the retention bound above. Prefix caching,
-KV transfer and other graph modes fail closed.
+speculative method, subject to the retention bound above. Prefix caching is
+supported for cacheable attention groups; the circular compressor state remains
+request-local and is excluded from prefix-cache hits. KV transfer and other
+graph modes fail closed.
 
 The fallback attends over local SWA plus the compressed rows selected by the
 Indexer/Candidate path. Engram execution is intentionally disabled: its two
@@ -172,8 +174,9 @@ runs skip ring state updates. Model runner V1 supports eager prefill and
 
 G1 admission now reserves one ID regardless of sequence length. Slot capacity
 and proportional rank shrinking are unchanged: total backing bytes remain
-`N * 540928`. Prefix scratch compatibility does not enable Aurora prefix caching,
-speculation, KV transfer, V2, or unsupported parallel modes.
+`N * 540928`. Prefix caching reuses cacheable attention groups while keeping the
+circular scratch state request-local; it does not enable KV transfer, V2, or
+unsupported parallel modes.
 
 ## Validation
 

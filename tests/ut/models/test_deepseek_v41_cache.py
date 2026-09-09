@@ -328,11 +328,9 @@ def test_model_registration_and_binding(runtime):
     assert len(owned_names) == 51
 
 
-@pytest.mark.parametrize("feature", ["prefix", "spec", "pd", "pp", "v2", "graph"])
+@pytest.mark.parametrize("feature", ["spec", "pd", "pp", "v2", "graph"])
 def test_unsupported_runtime_fails_before_registration(runtime, feature):
-    if feature == "prefix":
-        runtime.cache_config.enable_prefix_caching = True
-    elif feature == "spec":
+    if feature == "spec":
         runtime.speculative_config = object()
     elif feature == "pd":
         runtime.kv_transfer_config = object()
@@ -347,6 +345,13 @@ def test_unsupported_runtime_fails_before_registration(runtime, feature):
 
         validate_cache_runtime(runtime)
     assert not runtime.compilation_config.static_forward_context
+
+
+def test_prefix_cache_runtime_is_supported(runtime):
+    from vllm_ascend.core.deepseek_v41 import validate_cache_runtime
+
+    runtime.cache_config.enable_prefix_caching = True
+    validate_cache_runtime(runtime)
 
 
 def test_full_decode_only_runtime_is_supported(runtime):
