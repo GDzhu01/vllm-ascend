@@ -56,8 +56,7 @@ def dsa_v41_forward(
     """Execute V4.1 attention behind an explicit graph side-effect boundary."""
     forward_context = get_forward_context()
     attn = forward_context.no_compile_layers[layer_name]
-    projected = attn.v41_impl.forward(attn, None, hidden_states)
-    output.copy_(projected)
+    attn.v41_impl.forward(attn, None, hidden_states, output)
 
 
 def dsa_v41_forward_fake(
@@ -626,10 +625,16 @@ class DeepseekV41EagerAttentionImpl:
         """V4.1 owns stable metadata buffers; no backend pointer patch is needed."""
         return None
 
-    def forward(self, attn, positions, hidden_states):
+    def forward(self, attn, positions, hidden_states, output: torch.Tensor | None = None):
+        # The custom-op caller provides a graph-stable output buffer.  Write
+        # O-projection results into it directly instead of materializing a
+        # second full hidden-state tensor and copying it at the graph boundary.
+        if output is None:
+            output = torch.empty_like(hidden_states)
         forward_context = get_forward_context()
         if forward_context.attn_metadata is None:
-            return torch.zeros_like(hidden_states)
+            output.zero_()
+            return output
         metadata = self._get_layer_metadata(forward_context.attn_metadata)
         positions = metadata.positions[: hidden_states.shape[0]]
         cos, sin = metadata.rope(attn.rotary_emb.layername, hidden_states.shape[0])
@@ -646,17 +651,16 @@ class DeepseekV41EagerAttentionImpl:
                 metadata,
             )
         compressed_indices = self._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)
-        output = self._attention(attn, q, metadata, compressed_indices)
+        attention_output = self._attention(attn, q, metadata, compressed_indices)
         torch.ops._C_ascend.inplace_partial_rotary_mul(
-            output.unsqueeze(1),
+            attention_output.unsqueeze(1),
             cos,
             -sin,
             rotary_mode="interleave",
             partial_slice=[attn.nope_head_dim, attn.head_dim],
         )
-        projected = torch.empty_like(hidden_states)
-        attn.dsa_attn.dsa_attn.impl._forward_o_proj(output, projected)
-        return projected
+        attn.dsa_attn.dsa_attn.impl._forward_o_proj(attention_output, output)
+        return output
 
 
 class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):

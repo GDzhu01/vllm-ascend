@@ -11,6 +11,22 @@ import torch
 from vllm_ascend.attention import dsa_v41
 
 
+def test_dsa_v41_custom_op_forwards_its_output_buffer(monkeypatch):
+    hidden = torch.zeros(1, 8)
+    output = torch.empty_like(hidden)
+    impl = Mock()
+    attn = SimpleNamespace(v41_impl=impl)
+    monkeypatch.setattr(
+        dsa_v41,
+        "get_forward_context",
+        lambda: SimpleNamespace(no_compile_layers={"layer": attn}),
+    )
+
+    dsa_v41.dsa_v41_forward(hidden, output, "layer")
+
+    impl.forward.assert_called_once_with(attn, None, hidden, output)
+
+
 @pytest.mark.parametrize("share_quant", [False, True])
 @pytest.mark.parametrize("num_tokens", [1, 5])
 @torch.inference_mode()
@@ -160,8 +176,11 @@ def test_forward_selects_preprocess_from_v1_switch(monkeypatch, enabled):
     metadata.rope = lambda *args: (torch.zeros(1), torch.zeros(1))
     monkeypatch.setattr(dsa_v41, "get_forward_context", lambda: SimpleNamespace(attn_metadata={}))
     monkeypatch.setattr(torch.ops._C_ascend, "inplace_partial_rotary_mul", lambda *args, **kwargs: None, raising=False)
-    impl.forward(attn, None, hidden)
+    output = torch.full_like(hidden, 1)
+    result = impl.forward(attn, None, hidden, output)
     selected = impl.multistream_preprocess if enabled else impl.preprocess
     unused = impl.preprocess if enabled else impl.multistream_preprocess
     selected.assert_called_once()
     unused.assert_not_called()
+    assert result is output
+    assert torch.count_nonzero(output) == 0
