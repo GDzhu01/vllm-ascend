@@ -2420,8 +2420,8 @@ class NPUModelRunner(GPUModelRunner):
             self.model_config.hf_text_config, "model_type", None
         )
         is_deepseek_v41 = (
-            hf_model_type == "deepseek_v4.1"
-            or hf_text_model_type == "deepseek_v4.1_text"
+            hf_model_type in ("deepseek_v4.1", "deepseek_v41")
+            or hf_text_model_type in ("deepseek_v4.1_text", "deepseek_v41_text")
         )
         v41_eager_fallback = (
             is_deepseek_v41 and cudagraph_mode == CUDAGraphMode.NONE

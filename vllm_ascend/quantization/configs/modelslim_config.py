@@ -461,6 +461,18 @@ QUANT_MODEL_SUBSTR_MAPPINGS = {
     },
 }
 
+# The released config renamed the V4.1 model type without changing its
+# ModelSlim module namespace. Keep pre-release checkpoints compatible.
+packed_modules_model_mapping["deepseek_v41"] = packed_modules_model_mapping[
+    "deepseek_v4.1"
+]
+QUANT_MODEL_PREFIX_MAPPINGS["deepseek_v41"] = QUANT_MODEL_PREFIX_MAPPINGS[
+    "deepseek_v4.1"
+]
+QUANT_MODEL_SUBSTR_MAPPINGS["deepseek_v41"] = QUANT_MODEL_SUBSTR_MAPPINGS[
+    "deepseek_v4.1"
+]
+
 
 def get_packed_modules_mapping(model_type: str) -> dict[str, list[str]]:
     """Get packed modules mapping for a model type.
