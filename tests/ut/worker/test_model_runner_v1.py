@@ -64,7 +64,12 @@ class TestDummyRunSlotInvalidation(unittest.TestCase):
             slot_mapping=SimpleNamespace(gpu=slot_mappings[index])
         )
         runner.input_batch = SimpleNamespace(block_table=block_tables)
-        runner.kv_cache_config = SimpleNamespace(kv_cache_groups=[object(), object()])
+        runner.kv_cache_config = SimpleNamespace(
+            kv_cache_groups=[
+                SimpleNamespace(kv_cache_spec=object()),
+                SimpleNamespace(kv_cache_spec=object()),
+            ]
+        )
 
         def check_slots_before_build(**_kwargs):
             for slot_mapping in slot_mappings:
@@ -75,6 +80,64 @@ class TestDummyRunSlotInvalidation(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "metadata checked"):
             runner._dummy_run(1)
+
+    def test_graph_capture_invalidates_only_v41_active_slots(self):
+        runner = NPUModelRunner.__new__(NPUModelRunner)
+        runner.uniform_decode_query_len = 1
+        runner.scheduler_config = SimpleNamespace(max_num_batched_tokens=8, max_num_seqs=8)
+        runner.dynamic_eplb = False
+        runner.dcp_size = 1
+        runner.speculative_config = None
+        runner.use_compress = True
+        runner._has_gdn = False
+        runner.vllm_config = MagicMock()
+
+        runner._determine_batch_execution_and_padding = MagicMock(
+            return_value=(
+                CUDAGraphMode.FULL,
+                SimpleNamespace(num_tokens=2, num_reqs=2),
+                None,
+                None,
+                None,
+            )
+        )
+        runner._should_build_dummy_attn_metadata = MagicMock(return_value=True)
+        runner.synchronize_input_prep = MagicMock(return_value=nullcontext())
+        runner._get_cumsum_and_arange = MagicMock(return_value=np.array([1, 2], dtype=np.int32))
+        runner._pad_query_start_loc_for_fia = MagicMock(return_value=2)
+
+        runner.optimistic_seq_lens_cpu = torch.zeros(8, dtype=torch.int32)
+        runner.seq_lens = MagicMock()
+        runner.query_pos = SimpleNamespace(np=np.zeros(8, dtype=np.int32))
+        runner.query_start_loc = SimpleNamespace(np=np.zeros(9, dtype=np.int32), copy_to_gpu=MagicMock())
+        runner.positions = MagicMock()
+        runner._dsa_positions_cpu_buf = MagicMock()
+
+        v41_group = make_cache_config(17).kv_cache_groups[0]
+        other_group = SimpleNamespace(kv_cache_spec=object())
+        slot_mappings = [torch.tensor([3, 4]), torch.tensor([7, 8])]
+        block_tables = MagicMock()
+        block_tables.__getitem__.side_effect = lambda index: SimpleNamespace(
+            slot_mapping=SimpleNamespace(gpu=slot_mappings[index])
+        )
+        runner.input_batch = SimpleNamespace(block_table=block_tables)
+        runner.kv_cache_config = SimpleNamespace(
+            kv_cache_groups=[v41_group, other_group],
+            num_blocks=17,
+        )
+
+        def check_slots_before_build(**_kwargs):
+            torch.testing.assert_close(slot_mappings[0], torch.full_like(slot_mappings[0], -1))
+            torch.testing.assert_close(slot_mappings[1], torch.tensor([7, 8]))
+            raise RuntimeError("metadata checked")
+
+        runner._build_attention_metadata = check_slots_before_build
+
+        with (
+            patch("vllm_ascend.worker.model_runner_v1.using_paged_attention", return_value=False),
+            self.assertRaisesRegex(RuntimeError, "metadata checked"),
+        ):
+            runner._dummy_run(2, cudagraph_runtime_mode=CUDAGraphMode.FULL, is_graph_capturing=True)
 
 
 class TestDeviceMetadataFullGraphEvents(unittest.TestCase):
