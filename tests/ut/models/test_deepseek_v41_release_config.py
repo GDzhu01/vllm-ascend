@@ -1,6 +1,8 @@
 import pytest
+from vllm import ModelRegistry
 
 from vllm_ascend.deepseek_v41_config import DeepseekV41Config
+from vllm_ascend.models import register_model
 
 
 def _released_text_config():
@@ -48,10 +50,31 @@ def test_released_config_names_are_available_to_existing_runtime():
     assert config.vision_max_n_token == config.vision_config.max_image_tokens == 1024
     assert config.vision_config.max_num_tokens == 1024
     assert config.engram_rotation_config == _rotation_config()
-    # The released Flash checkpoint is explicitly a causal LM even though it
-    # retains vision shape metadata in config.json.
-    assert not config.is_mm_prefix_lm
-    assert not config.mm_prefix_clamp_sliding_window
+    # The released checkpoint renamed the architecture to CausalLM but still
+    # carries and serves the complete vision path.
+    assert config.is_mm_prefix_lm
+    assert config.mm_prefix_clamp_sliding_window
+    assert config.mm_prefix_span_leading_pad_modulus == 2
+
+
+def test_released_causal_architecture_uses_multimodal_wrapper(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        ModelRegistry,
+        "register_model",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    register_model()
+
+    assert any(
+        args
+        == (
+            "DeepseekV41ForCausalLM",
+            "vllm_ascend.models.deepseek_v41.vl_model:AscendDeepseekV41ForConditionalGeneration",
+        )
+        for args, _kwargs in calls
+    )
 
 
 def test_legacy_conditional_config_remains_supported():

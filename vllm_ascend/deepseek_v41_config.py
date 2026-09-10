@@ -142,10 +142,11 @@ class DeepseekV41Config(PretrainedConfig):
         for alias, source in vision_aliases.items():
             setattr(self, alias, getattr(self.vision_config, source, None))
 
-        architectures = tuple(getattr(self, "architectures", None) or ())
-        vision_enabled = bool(self.vision_n_layers) and (
-            "DeepseekV41ForConditionalGeneration" in architectures
-        )
+        # The released checkpoint is still multimodal even though its
+        # architecture was renamed from *ForConditionalGeneration to
+        # DeepseekV41ForCausalLM. Presence of the populated vision config,
+        # rather than the architecture suffix, is the capability signal.
+        vision_enabled = bool(self.vision_n_layers)
         self.image_token_id = int(getattr(self, "image_token_id", 129264))
         # V4.1 uses one image token for every span role. The adjacent reserved
         # token is used only for vLLM's ratio-2 compressor-alignment row.

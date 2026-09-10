@@ -41,7 +41,7 @@ def register_model():
     )
     ModelRegistry.register_model(
         "DeepseekV41ForCausalLM",
-        "vllm_ascend.models.deepseek_v41.model:AscendDeepseekV41ForCausalLM",
+        "vllm_ascend.models.deepseek_v41.vl_model:AscendDeepseekV41ForConditionalGeneration",
     )
     ModelRegistry.register_model(
         "MiniMaxM3SparseForCausalLM",
