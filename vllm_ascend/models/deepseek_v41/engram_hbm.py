@@ -84,13 +84,12 @@ class EngramQueryGroup:
         from vllm.distributed import get_ep_group, get_tp_group
 
         if (
-            parallel.tensor_parallel_size != 8
-            or parallel.pipeline_parallel_size != 1
+            parallel.pipeline_parallel_size != 1
             or parallel.prefill_context_parallel_size != 1
             or parallel.decode_context_parallel_size != 1
             or not parallel.enable_expert_parallel
         ):
-            raise ValueError("Engram HBM sharing requires TP8, EP, PP=PCP=DCP=1")
+            raise ValueError("Engram HBM sharing requires EP and PP=PCP=DCP=1")
         ep, tp = get_ep_group(), get_tp_group()
         hosts = [None] * ep.world_size
         dist.all_gather_object(hosts, socket.gethostname(), group=ep.cpu_group)
