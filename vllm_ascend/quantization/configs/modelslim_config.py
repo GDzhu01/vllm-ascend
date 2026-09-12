@@ -165,20 +165,19 @@ QUANT_MODEL_PREFIX_MAPPINGS = {
         "head.": "lm_head.",
     },
     "deepseek_v4.1": {
-        "language_model.model.": "model.",
-        "language_model.lm_head.": "lm_head.",
-        "language_model.lm_head": "lm_head",
-        "layers.": "model.layers.",
-        "embed.": "model.embed_tokens.",
-        "head.": "lm_head.",
-    },
-    "deepseek_v41": {
-        "language_model.model.": "model.",
-        "language_model.lm_head.": "lm_head.",
-        "language_model.lm_head": "lm_head",
-        "layers.": "model.layers.",
-        "embed.": "model.embed_tokens.",
-        "head.": "lm_head.",
+        # V4.1 ModelSlim descriptions keep the original checkpoint names,
+        # while the runtime reuses the V4 module tree. Map runtime prefixes
+        # back to the checkpoint namespace for quant-scheme lookup.
+        "language_model.model.layers.": "layers.",
+        "language_model.model.embed_tokens.": "embed.",
+        "language_model.model.embed_tokens": "embed",
+        "language_model.lm_head.": "head.",
+        "language_model.lm_head": "head",
+        "model.layers.": "layers.",
+        "model.embed_tokens.": "embed.",
+        "model.embed_tokens": "embed",
+        "lm_head.": "head.",
+        "lm_head": "head",
     },
 }
 
@@ -194,22 +193,18 @@ QUANT_MODEL_SUBSTR_MAPPINGS = {
         ".attn_norm.": ".input_layernorm.",
     },
     "deepseek_v4.1": {
-        ".attn.": ".self_attn.",
-        ".w1.": ".gate_proj.",
-        ".w2.": ".down_proj.",
-        ".w3.": ".up_proj.",
-        ".ffn.": ".mlp.",
-        ".ffn_norm.": ".post_attention_layernorm.",
-        ".attn_norm.": ".input_layernorm.",
-    },
-    "deepseek_v41": {
-        ".attn.": ".self_attn.",
-        ".w1.": ".gate_proj.",
-        ".w2.": ".down_proj.",
-        ".w3.": ".up_proj.",
-        ".ffn.": ".mlp.",
-        ".ffn_norm.": ".post_attention_layernorm.",
-        ".attn_norm.": ".input_layernorm.",
+        ".self_attn.": ".attn.",
+        ".gate_proj.": ".w1.",
+        ".gate_proj": ".w1",
+        ".down_proj.": ".w2.",
+        ".down_proj": ".w2",
+        ".up_proj.": ".w3.",
+        ".up_proj": ".w3",
+        ".mlp.": ".ffn.",
+        ".post_attention_layernorm.": ".ffn_norm.",
+        ".post_attention_layernorm": ".ffn_norm",
+        ".input_layernorm.": ".attn_norm.",
+        ".input_layernorm": ".attn_norm",
     },
     # The step3.5 MTP draft nests its decoder block under ".mtp_block.", but the
     # checkpoint's quant_model_description.json keys it without that infix
@@ -229,6 +224,15 @@ QUANT_MODEL_SUBSTR_MAPPINGS = {
         ".moe.experts": ".experts",
     },
 }
+
+# The released config renamed the V4.1 model type without changing its
+# ModelSlim module namespace. Keep pre-release checkpoints compatible.
+QUANT_MODEL_PREFIX_MAPPINGS["deepseek_v41"] = QUANT_MODEL_PREFIX_MAPPINGS[
+    "deepseek_v4.1"
+]
+QUANT_MODEL_SUBSTR_MAPPINGS["deepseek_v41"] = QUANT_MODEL_SUBSTR_MAPPINGS[
+    "deepseek_v4.1"
+]
 
 
 def _is_missing_v_shard(shard_key: str, quant_description: dict[str, Any]) -> bool:
