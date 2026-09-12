@@ -380,6 +380,15 @@ class AscendModelSlimConfig(QuantizationConfig):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "AscendModelSlimConfig":
+        # Some ModelSlim checkpoints keep only format metadata in config.json
+        # and store the per-parameter description in
+        # quant_model_description.json. Treat that metadata-only form as a
+        # deferred file load; otherwise maybe_update_config() sees a non-empty
+        # dict and never reads the actual layer descriptions.
+        if config.get("quant_method") == ASCEND_QUANTIZATION_METHOD and not any(
+            isinstance(name, str) and name.endswith(".weight") for name in config
+        ):
+            return cls()
         return cls(config)
 
     @classmethod
