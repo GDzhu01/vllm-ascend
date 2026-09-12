@@ -155,7 +155,7 @@ def test_twelve_groups_share_four_layer_slots(config, runtime):
     for backing, allocation, slot in zip(raw, allocations, slots):
         assert allocation.offset == 0 and allocation.block_stride == slot.page_size_bytes
         assert allocation.size == blocks * slot.page_size_bytes
-        assert allocation.shared_by == [p.name for p in slot.placements]
+        assert allocation.layers == [p.name for p in slot.placements]
         for placement in slot.placements:
             spec = specs[placement.name]
             cache = caches[placement.name]
@@ -414,7 +414,7 @@ def test_dspark_is_one_additional_group_in_existing_slots(runtime):
     assert sum(b.numel() for b in backings) == 17 * 540928
     for stage in range(3):
         name = f"mtp.{stage}.self_attn.swa_cache"
-        assert name in draft.kv_cache_tensors[stage].shared_by
+        assert name in draft.kv_cache_tensors[stage].layers
         assert views[name].data_ptr() == backings[stage].data_ptr()
         assert views[name].shape == (17, 128, 1, 512)
         assert views[name].stride() == (65536, 512, 512, 1)

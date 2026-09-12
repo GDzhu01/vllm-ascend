@@ -335,6 +335,8 @@ def reshape_cache(raw: torch.Tensor, spec, *, num_blocks, offset, block_stride):
 def validate_cache_runtime(vllm_config):
     if vllm_config.use_v2_model_runner:
         raise NotImplementedError("V4.1 cache initialization currently requires model runner V1")
+    if getattr(vllm_config, "kv_transfer_config", None) is not None:
+        raise NotImplementedError("V4.1 cache initialization does not support KV transfer")
     cudagraph_mode = getattr(
         vllm_config.compilation_config,
         "cudagraph_mode",

@@ -635,6 +635,18 @@ def _ascend_get_kv_cache_config_from_groups(
     available_memory: int,
 ) -> KVCacheConfig:
     """Restore Ascend's DSV4 shared-tuple planner removed by vLLM #51718."""
+    if has_v41_groups(kv_cache_groups):
+        num_blocks, kv_cache_tensors = allocate_v41_cache_config(
+            vllm_config, kv_cache_groups, available_memory
+        )
+        return KVCacheConfig(
+            num_blocks=num_blocks,
+            kv_cache_tensors=kv_cache_tensors,
+            kv_cache_groups=kv_cache_groups,
+            prefix_cache_retention_interval=(
+                vllm_config.cache_config.prefix_cache_retention_interval
+            ),
+        )
     if _get_glm5_next_cache_layout(kv_cache_groups) is not None:
         return get_glm5_next_kv_cache_config(vllm_config, kv_cache_groups, available_memory)
     if vllm_version_is("0.28.0") or not _is_deepseek_v4_groups(kv_cache_groups):
