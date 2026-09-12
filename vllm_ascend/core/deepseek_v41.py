@@ -302,8 +302,8 @@ def allocate_cache_config(vllm_config, groups, available_memory):
 
 def reshape_cache(raw: torch.Tensor, spec, *, num_blocks, offset, block_stride):
     """Create typed per-page views using the containing slot's physical stride."""
-    if raw.dtype != torch.uint8 or raw.ndim != 1 or not raw.is_contiguous():
-        raise ValueError("V4.1 cache requires contiguous one-dimensional uint8 storage")
+    if raw.dtype not in (torch.int8, torch.uint8) or raw.ndim != 1 or not raw.is_contiguous():
+        raise ValueError("V4.1 cache requires contiguous one-dimensional byte storage")
     if num_blocks <= 0 or block_stride <= 0 or raw.numel() != num_blocks * block_stride:
         raise ValueError("V4.1 cache backing does not match its declared layout")
     plane_sizes = _cache_plane_sizes(spec)

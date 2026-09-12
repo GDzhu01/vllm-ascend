@@ -265,6 +265,13 @@ def test_view_with_nonzero_backing_storage_offset():
     assert not backing[:48].any()
 
 
+def test_view_accepts_latest_vllm_int8_backing_storage():
+    spec = DeepseekV41FullSpec(block_size=16, num_kv_heads=1, head_size=4, dtype=torch.bfloat16)
+    raw = torch.zeros(2 * 256, dtype=torch.int8)
+    cache = reshape_cache(raw, spec, num_blocks=2, offset=32, block_stride=256)
+    assert cache.shape == (2, 16, 1, 4)
+
+
 def test_request_accounting_counts_merged_full_context_once(runtime):
     runtime.model_config.max_model_len = 1024
     runtime.max_in_flight_tokens = 128
