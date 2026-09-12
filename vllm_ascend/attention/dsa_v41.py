@@ -33,6 +33,7 @@ from vllm_ascend.core.deepseek_v41 import (
     DeepseekV41IndexerSpec,
     DeepseekV41SWASpec,
 )
+from vllm_ascend.core.kv_cache_interface import get_kv_cache_compression_ratio
 from vllm_ascend.ops.rope_dsv4 import (
     get_cos_and_sin_dsa,
     get_full_cos_and_sin_dsa_for_layer,
@@ -749,7 +750,11 @@ class DeepseekV41MetadataBuilder(AttentionMetadataBuilder[DeepseekV41Metadata]):
         spec = self.kv_cache_spec
         common = common_attn_metadata
         is_compressor_state = isinstance(spec, DeepseekV41CompressorStateSpec)
-        ratio = getattr(spec, "compress_ratio", 1)
+        ratio = (
+            spec.compress_ratio
+            if is_compressor_state
+            else get_kv_cache_compression_ratio(spec)
+        )
         if isinstance(spec, DeepseekV41SWASpec):
             cache_kind = "swa"
         elif isinstance(spec, DeepseekV41FullSpec):

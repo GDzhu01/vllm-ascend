@@ -231,7 +231,7 @@ def test_slot_planner_rejects_missing_and_mismatched_pairs(runtime):
     index_name = "model.layers.2.self_attn.indexer.k_cache"
     with pytest.raises(ValueError, match="incompatible KV/index"):
         plan_cache_slots({n: s for n, s in specs.items() if n != index_name})
-    specs[index_name] = replace(specs[index_name], compress_ratio=1)
+    specs[index_name] = replace(specs[index_name], tokens_per_state=1)
     with pytest.raises(ValueError, match="incompatible KV/index"):
         plan_cache_slots(specs)
 
