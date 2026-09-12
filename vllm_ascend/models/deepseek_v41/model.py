@@ -236,6 +236,8 @@ class DeepseekV41Attention(DeepseekV4Attention):
         quant_config=None,
         prefix="",
         topk_indices_buffer=None,
+        reduce_results=True,
+        need_gather_q_kv=False,
     ):
         config = text_config_of(config)
         validate_cache_runtime(vllm_config)
@@ -255,6 +257,8 @@ class DeepseekV41Attention(DeepseekV4Attention):
                 quant_config=quant_config,
                 prefix=prefix,
                 topk_indices_buffer=topk_indices_buffer,
+                reduce_results=reduce_results,
+                need_gather_q_kv=need_gather_q_kv,
             )
         finally:
             config.compress_ratios = original_ratios
