@@ -44,7 +44,11 @@ def test_ring_lifetime_reuse_and_external_tokens():
         assert manager.allocate_new_blocks("a", tokens, tokens) == []
         manager.allocate_external_computed_blocks("a", 0, tokens)
         manager.remove_skipped_blocks("a", tokens)
-        manager.cache_blocks(SimpleNamespace(request_id="a"), tokens)
+        manager.cache_blocks(
+            SimpleNamespace(request_id="a"),
+            tokens,
+            replay_boundary=tokens - 1,
+        )
         assert manager.req_to_blocks["a"] == a
     assert manager.take_new_block_ids() == []
     assert manager.get_num_common_prefix_blocks("a") == manager.get_num_skipped_tokens(65536) == 0

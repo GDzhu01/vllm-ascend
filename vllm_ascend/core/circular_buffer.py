@@ -111,7 +111,14 @@ class AscendCircularBufferManager(FullAttentionManager):
     ):
         return tuple([] for _ in kv_cache_group_ids), 0
 
-    def cache_blocks(self, request, num_tokens, retention_interval=None):
+    def cache_blocks(
+        self,
+        request,
+        num_tokens,
+        retention_interval=None,
+        *,
+        replay_boundary=None,
+    ):
         pass
 
     def add_local_computed_blocks(
