@@ -1443,7 +1443,13 @@ def test_v41_cp_consumers_reuse_local_topk_and_candidates():
     candidates = torch.tensor([[True, False]])
     shared = SimpleNamespace(topk_indices=indices, candidates=candidates)
     actual = impl._select_sparse_indices(
-        SimpleNamespace(shared_state=shared), torch.empty(2, 1), None, None, None, None, None
+        SimpleNamespace(shared_state=shared),
+        torch.empty(16, 1),
+        torch.empty(2, 1),
+        None,
+        None,
+        None,
+        None,
     )
     assert actual.data_ptr() == indices.data_ptr()
     torch.testing.assert_close(actual, indices)

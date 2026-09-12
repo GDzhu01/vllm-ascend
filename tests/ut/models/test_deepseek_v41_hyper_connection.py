@@ -129,7 +129,8 @@ def test_v41_forward_gathers_attention_and_keeps_moe_sharded(monkeypatch):
     layer.forward(torch.arange(2), hidden_states, pre, input_ids=torch.tensor([1, 2]))
 
     all_gather.assert_called_once_with(collapsed)
-    reduce_scatter.assert_called_once_with(collapsed)
+    reduce_scatter.assert_called_once()
+    torch.testing.assert_close(reduce_scatter.call_args.args[0], collapsed)
     assert layer.mlp.call_args.kwargs["already_sequence_parallel"] is True
 
 
@@ -234,6 +235,7 @@ def test_v41_dspark_propagates_delayed_mix_and_collapses_final_stream():
     torch.nn.Module.__init__(model)
     model.hc_mult = 2
     model.needs_moe_input_ids = False
+    model.use_sequence_parallel = False
     model.embed_tokens = torch.nn.Embedding(4, 3)
     seen = []
 
@@ -304,6 +306,7 @@ def test_v41_dspark_decoder_uses_draft_experts_instead_of_target_config():
     )
     config = SimpleNamespace(
         model_config=SimpleNamespace(hf_config=SimpleNamespace(n_routed_experts=384)),
+        parallel_config=SimpleNamespace(use_sequence_parallel_moe=False),
         speculative_config=SimpleNamespace(draft_model_config=SimpleNamespace(hf_text_config=draft)),
         quant_config=None,
     )

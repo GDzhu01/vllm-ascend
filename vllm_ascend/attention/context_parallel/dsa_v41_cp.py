@@ -223,6 +223,16 @@ class DeepseekV41CPImpl(DeepseekV41EagerAttentionImpl):
         return self._project_q(attn, hidden_states, cos, sin)
 
     def _select_sparse_indices(self, attn, hidden_states, qr, positions, cos, sin, metadata):
+        if not self.role.has_long_context:
+            return None
+        if not self.role.is_index_source:
+            shared = attn.shared_state
+            if shared is None:
+                raise RuntimeError("V4.1 shared attention state is not initialized")
+            # ``hidden_states`` still owns the full pre-CP token batch here,
+            # while ``qr`` was projected from this rank's local query slice.
+            # SparseFlashMla requires cmp_sparse_indices.T to match q.T.
+            return shared.topk_indices[: qr.shape[0]]
         start, _, _, _ = metadata.swa.cp_token_range
         hidden_states = hidden_states[start : start + metadata.swa.num_actual_tokens]
         return super()._select_sparse_indices(attn, hidden_states, qr, positions, cos, sin, metadata)

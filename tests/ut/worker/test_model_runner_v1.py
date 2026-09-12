@@ -2379,7 +2379,11 @@ class TestKVPPExecute(unittest.TestCase):
                 runner.model = object()
                 runner.vllm_config = SimpleNamespace()
                 runner.parallel_config = SimpleNamespace(num_ubatches=1)
-                runner.model_config = SimpleNamespace(enforce_eager=True)
+                runner.model_config = SimpleNamespace(
+                    enforce_eager=True,
+                    hf_config=SimpleNamespace(model_type="test"),
+                    hf_text_config=SimpleNamespace(model_type="test"),
+                )
                 runner.cache_config = SimpleNamespace(kv_sharing_fast_prefill=False, mamba_cache_mode=None)
                 runner.input_batch = SimpleNamespace(
                     num_reqs=2, req_ids=["a", "b"], num_computed_tokens_cpu=np.array(computed)
