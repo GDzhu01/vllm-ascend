@@ -425,13 +425,6 @@ def _get_deepseek_v4_cache_layout(
     For each group, bucket its layers by page_size_bytes and place each layer
     at tuple_idx = position-within-bucket.
     """
-    if any(
-        is_v41_spec(s)
-        for g in kv_cache_groups
-        if isinstance(g.kv_cache_spec, UniformTypeKVCacheSpecs)
-        for s in g.kv_cache_spec.kv_cache_specs.values()
-    ):
-        return allocate_v41_cache_config(vllm_config, kv_cache_groups, available_memory)
     full_mla_spec = kv_cache_groups[0].kv_cache_spec
     assert isinstance(full_mla_spec, UniformTypeKVCacheSpecs)
     page_sizes = sorted(_page_sizes(full_mla_spec))
@@ -468,6 +461,8 @@ def _get_kv_cache_config_deepseek_v4(
     available_memory: int,
 ) -> tuple[int, list[KVCacheTensor]]:
     """Plan v0.28.0 DSV4 tensors using the shared_by contract."""
+    if has_v41_groups(kv_cache_groups):
+        return allocate_v41_cache_config(vllm_config, kv_cache_groups, available_memory)
     page_sizes, bucketed, mtp_layer_names, mtp_page_size, num_layer_tuples = _get_deepseek_v4_cache_layout(
         kv_cache_groups
     )
@@ -501,6 +496,8 @@ def _get_kv_cache_config_deepseek_v4_main(
     kv_cache_groups: list[KVCacheGroupSpec],
     available_memory: int,
 ) -> tuple[int, list[KVCacheTensor]]:
+    if has_v41_groups(kv_cache_groups):
+        return allocate_v41_cache_config(vllm_config, kv_cache_groups, available_memory)
     (
         page_sizes,
         bucketed,
