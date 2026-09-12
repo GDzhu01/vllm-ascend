@@ -74,12 +74,14 @@ class TestAscendModelSlimConfig(TestBase):
         self.assertEqual(config.quant_description, {})
 
     def test_deepseek_v41_packed_mapping_uses_checkpoint_shard_names(self):
+        self.ascend_config._update_packed_modules_mapping("deepseek_v4.1")
         self.assertEqual(
-            get_packed_modules_mapping("deepseek_v4.1"),
-            {
-                "gate_up_proj": ["w1", "w3"],
-                "experts": ["experts.0.w1", "experts.0.w2", "experts.0.w3"],
-            },
+            self.ascend_config.packed_modules_mapping["gate_up_proj"],
+            ["w1", "w3"],
+        )
+        self.assertEqual(
+            self.ascend_config.packed_modules_mapping["experts"],
+            ["experts.0.w1", "experts.0.w2", "experts.0.w3"],
         )
 
     def test_deepseek_v41_quant_prefix_maps_terminal_projection(self):

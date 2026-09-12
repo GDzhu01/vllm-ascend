@@ -307,7 +307,8 @@ class DeepseekV41Attention(DeepseekV4Attention):
                     num_kv_heads=1,
                     head_size=width,
                     dtype=torch.bfloat16,
-                    compress_ratio=role.compress_ratio,
+                    tokens_per_state=role.compress_ratio,
+                    storage_block_size=block_size // role.compress_ratio,
                 ),
             )
         self.compressor = (

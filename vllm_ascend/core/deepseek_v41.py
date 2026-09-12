@@ -10,7 +10,11 @@ from vllm.v1.core.kv_cache_utils import may_override_num_blocks
 from vllm.v1.kv_cache_interface import KVCacheGroupSpec, KVCacheTensor, UniformTypeKVCacheSpecs
 
 from vllm_ascend.core.circular_buffer import AscendCircularBufferSpec
-from vllm_ascend.core.kv_cache_interface import AscendMLAAttentionSpec, AscendSlidingWindowMLASpec
+from vllm_ascend.core.kv_cache_interface import (
+    AscendMLAAttentionSpec,
+    AscendSlidingWindowMLASpec,
+    get_kv_cache_compression_ratio,
+)
 from vllm_ascend.utils import vllm_version_is
 
 STATE_RING_ROWS = 32
@@ -22,7 +26,7 @@ class DeepseekV41FullSpec(AscendMLAAttentionSpec):
         return all(
             isinstance(s, (DeepseekV41FullSpec, DeepseekV41IndexerSpec))
             and s.block_size == self.block_size
-            and s.compress_ratio in (1, 2)
+            and get_kv_cache_compression_ratio(s) in (1, 2)
             for s in specs.values()
         )
 
@@ -35,7 +39,7 @@ class DeepseekV41IndexerSpec(AscendMLAAttentionSpec):
         return all(
             isinstance(s, (DeepseekV41FullSpec, DeepseekV41IndexerSpec))
             and s.block_size == self.block_size
-            and s.compress_ratio in (1, 2)
+            and get_kv_cache_compression_ratio(s) in (1, 2)
             for s in specs.values()
         )
 
@@ -169,8 +173,8 @@ def plan_cache_slots(specs):
         if (
             suffix != "long_kv_cache"
             or not isinstance(index_spec, DeepseekV41IndexerSpec)
-            or kv_spec.compress_ratio != ratio
-            or index_spec.compress_ratio != ratio
+            or get_kv_cache_compression_ratio(kv_spec) != ratio
+            or get_kv_cache_compression_ratio(index_spec) != ratio
             or kv_spec.block_size != index_spec.block_size
         ):
             raise ValueError(f"V4.1 source {prefix} has incompatible KV/index specs")

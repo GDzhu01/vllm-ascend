@@ -44,14 +44,16 @@ def build_v41_cache_specs(config: Any, vllm_config: Any, prefix: str = "model"):
             num_kv_heads=1,
             head_size=width,
             dtype=torch.bfloat16,
-            compress_ratio=role.compress_ratio,
+            tokens_per_state=role.compress_ratio,
+            storage_block_size=block_size // role.compress_ratio,
         )
         specs[f"{attn_prefix}.indexer.k_cache"] = DeepseekV41IndexerSpec(
             block_size=block_size,
             num_kv_heads=1,
             head_size=index_width,
             dtype=torch.int8,
-            compress_ratio=role.compress_ratio,
+            tokens_per_state=role.compress_ratio,
+            storage_block_size=block_size // role.compress_ratio,
             scale_dim=1,
             scale_dtype=torch.float16,
         )

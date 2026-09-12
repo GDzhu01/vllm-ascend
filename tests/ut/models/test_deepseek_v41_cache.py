@@ -955,7 +955,7 @@ def test_merged_metadata_preserves_nonconsecutive_block_ids(runtime, end):
     )
     for name, spec in group.kv_cache_specs.items():
         metadata = DeepseekV41MetadataBuilder(spec, [name], runtime, torch.device("cpu")).build(0, common)
-        ratio = spec.compress_ratio
+        ratio = spec.tokens_per_state
         rows = 128 // ratio
         expected = table[0, positions // 128] * rows + (positions % 128) // ratio
         expected = torch.where((positions + 1) % ratio == 0, expected, -1)
