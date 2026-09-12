@@ -1173,8 +1173,7 @@ at::Tensor npu_quant_lightning_indexer_v2_metadata_meta(
     const c10::optional<at::Tensor> &cu_seqlens_q, const c10::optional<at::Tensor> &cu_seqlens_k,
     const c10::optional<at::Tensor> &seqused_q, const c10::optional<at::Tensor> &seqused_k,
     const c10::optional<at::Tensor> &cmp_residual_k, int64_t batch_size, int64_t max_seqlen_q, int64_t max_seqlen_k,
-    const c10::string_view layout_q, c10::string_view layout_k, int64_t mask_mode, int64_t cmp_ratio,
-    const c10::string_view device)
+    const c10::string_view layout_q, c10::string_view layout_k, int64_t mask_mode, int64_t cmp_ratio)
 {
     constexpr int64_t OUTPUT_SIZE = 1024;
     at::Tensor output;
@@ -1195,15 +1194,9 @@ at::Tensor npu_quant_lightning_indexer_v2_metadata_meta(
             c10::SymDimVector{c10::SymInt(OUTPUT_SIZE)},
             torch::dtype(torch::kInt32).device(seqused_q.value().device()));
     } else {
-        auto deviceOri = at::Device(std::string(device));
-        std::string device_str = "meta";
-        if (deviceOri.has_index()) {
-            device_str += ":";
-            device_str += std::to_string(deviceOri.index());
-        }
         output = at::empty_symint(
             c10::SymDimVector{c10::SymInt(OUTPUT_SIZE)},
-            torch::dtype(torch::kInt32).device(at::Device(device_str)));
+            torch::dtype(torch::kInt32).device(at::kMeta));
     }
 
     return output;
