@@ -25,6 +25,7 @@ from vllm.v1.utils import CpuGpuBuffer
 from vllm.v1.worker.gpu_input_batch import CachedRequestState, InputBatch
 from vllm.v1.worker.gpu_model_runner import GPUModelRunner
 
+from tests.deepseek_v41_cache_utils import make_cache_config
 from vllm_ascend.attention.mla_v1 import AscendMLABackend
 from vllm_ascend.attention.utils import get_sfa_qsfa_packed_head_dim
 from vllm_ascend.core.kv_cache_interface import (
@@ -79,7 +80,12 @@ class TestDummyRunSlotInvalidation(unittest.TestCase):
             slot_mapping=SimpleNamespace(gpu=slot_mappings[index])
         )
         runner.input_batch = SimpleNamespace(block_table=block_tables)
-        runner.kv_cache_config = SimpleNamespace(kv_cache_groups=[object(), object()])
+        runner.kv_cache_config = SimpleNamespace(
+            kv_cache_groups=[
+                SimpleNamespace(kv_cache_spec=object()),
+                SimpleNamespace(kv_cache_spec=object()),
+            ]
+        )
 
         def check_slots_before_build(**_kwargs):
             for slot_mapping in slot_mappings:
@@ -90,6 +96,64 @@ class TestDummyRunSlotInvalidation(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "metadata checked"):
             runner._dummy_run(1)
+
+    def test_graph_capture_invalidates_only_v41_active_slots(self):
+        runner = NPUModelRunner.__new__(NPUModelRunner)
+        runner.uniform_decode_query_len = 1
+        runner.scheduler_config = SimpleNamespace(max_num_batched_tokens=8, max_num_seqs=8)
+        runner.dynamic_eplb = False
+        runner.dcp_size = 1
+        runner.speculative_config = None
+        runner.use_compress = True
+        runner._has_gdn = False
+        runner.vllm_config = MagicMock()
+
+        runner._determine_batch_execution_and_padding = MagicMock(
+            return_value=(
+                CUDAGraphMode.FULL,
+                SimpleNamespace(num_tokens=2, num_reqs=2),
+                None,
+                None,
+                None,
+            )
+        )
+        runner._should_build_dummy_attn_metadata = MagicMock(return_value=True)
+        runner.synchronize_input_prep = MagicMock(return_value=nullcontext())
+        runner._get_cumsum_and_arange = MagicMock(return_value=np.array([1, 2], dtype=np.int32))
+        runner._pad_query_start_loc_for_fia = MagicMock(return_value=2)
+
+        runner.optimistic_seq_lens_cpu = torch.zeros(8, dtype=torch.int32)
+        runner.seq_lens = MagicMock()
+        runner.query_pos = SimpleNamespace(np=np.zeros(8, dtype=np.int32))
+        runner.query_start_loc = SimpleNamespace(np=np.zeros(9, dtype=np.int32), copy_to_gpu=MagicMock())
+        runner.positions = MagicMock()
+        runner._dsa_positions_cpu_buf = MagicMock()
+
+        v41_group = make_cache_config(17).kv_cache_groups[0]
+        other_group = SimpleNamespace(kv_cache_spec=object())
+        slot_mappings = [torch.tensor([3, 4]), torch.tensor([7, 8])]
+        block_tables = MagicMock()
+        block_tables.__getitem__.side_effect = lambda index: SimpleNamespace(
+            slot_mapping=SimpleNamespace(gpu=slot_mappings[index])
+        )
+        runner.input_batch = SimpleNamespace(block_table=block_tables)
+        runner.kv_cache_config = SimpleNamespace(
+            kv_cache_groups=[v41_group, other_group],
+            num_blocks=17,
+        )
+
+        def check_slots_before_build(**_kwargs):
+            torch.testing.assert_close(slot_mappings[0], torch.full_like(slot_mappings[0], -1))
+            torch.testing.assert_close(slot_mappings[1], torch.tensor([7, 8]))
+            raise RuntimeError("metadata checked")
+
+        runner._build_attention_metadata = check_slots_before_build
+
+        with (
+            patch("vllm_ascend.worker.model_runner_v1.using_paged_attention", return_value=False),
+            self.assertRaisesRegex(RuntimeError, "metadata checked"),
+        ):
+            runner._dummy_run(2, cudagraph_runtime_mode=CUDAGraphMode.FULL, is_graph_capturing=True)
 
 
 class TestDeviceMetadataFullGraphEvents(unittest.TestCase):
@@ -461,6 +525,73 @@ class TestNPUModelRunnerKVCache(unittest.TestCase):
                     raw = runner._allocate_kv_cache_tensors(cache_config)
                     caches = runner._reshape_kv_cache_tensors(cache_config, raw)
                 assert_attention_cache_views(caches, raw, packed)
+    def test_v41_layer_outer_buffers_allocate_and_reshape(self):
+        runner = self._build_runner()
+        config = make_cache_config(4)
+        # vLLM shrinks each tensor proportionally when another rank has less
+        # capacity. Component offsets must not depend on the old block count.
+        for allocation in config.kv_cache_tensors:
+            allocation.size = allocation.size // config.num_blocks * 3
+        config.num_blocks = 3
+        raw = runner._allocate_kv_cache_tensors(config)
+        prefix = "model.layers."
+        long_name = prefix + "2.self_attn.long_kv_cache"
+        index_name = prefix + "2.self_attn.indexer.k_cache"
+        assert raw[long_name] is raw[index_name]
+        assert raw[long_name] is raw[prefix + "0.self_attn.swa_cache"]
+        assert raw[long_name] is not raw[prefix + "8.self_attn.long_kv_cache"]
+        unique = {id(value): value for value in raw.values()}
+        assert len(unique) == 4
+        assert sum(buffer.numel() for buffer in unique.values()) == 3 * 540928
+        runner._kv_cache_spec_attn_group_iterator = lambda: [
+            SimpleNamespace(kv_cache_spec=spec, backend=runner.attn_backend, layer_names=[name])
+            for group in config.kv_cache_groups
+            for name, spec in group.kv_cache_spec.kv_cache_specs.items()
+        ]
+        caches = runner._reshape_kv_cache_tensors(config, raw)
+        key, scale = caches[index_name]
+        assert key.shape == (3, 64, 1, 128)
+        assert scale.shape == (3, 64, 1, 1)
+        assert key.data_ptr() - caches[long_name].data_ptr() == 65536
+        assert scale.data_ptr() - key.data_ptr() == 8192
+        assert key.stride(0) == 131072
+        assert scale.stride(0) == 65536
+        assert not key.is_contiguous()
+        assert caches[prefix + "0.self_attn.swa_cache"].is_contiguous()
+        assert not caches[prefix + "3.self_attn.swa_cache"].is_contiguous()
+
+    def test_v41_rejects_obsolete_allocation_descriptors(self):
+        runner = self._build_runner()
+        config = make_cache_config(3)
+        config.kv_cache_tensors[0].block_stride = 0
+        with self.assertRaisesRegex(ValueError, "allocation disagrees"):
+            runner._allocate_kv_cache_tensors(config)
+
+    def test_v41_dspark_shares_four_backings_after_rank_shrink(self):
+        runner = self._build_runner()
+        config = make_cache_config(5, draft_layers=3)
+        for allocation in config.kv_cache_tensors:
+            allocation.size = allocation.size // config.num_blocks * 3
+        config.num_blocks = 3
+        raw = runner._allocate_kv_cache_tensors(config)
+        assert len({id(value) for value in raw.values()}) == 4
+        runner._kv_cache_spec_attn_group_iterator = lambda: [
+            SimpleNamespace(kv_cache_spec=spec, backend=runner.attn_backend, layer_names=[name])
+            for group in config.kv_cache_groups
+            for name, spec in group.kv_cache_spec.kv_cache_specs.items()
+        ]
+        caches = runner._reshape_kv_cache_tensors(config, raw)
+        for stage, source in enumerate((2, 8, 14)):
+            draft = f"mtp.{stage}.self_attn.swa_cache"
+            target = f"model.layers.{source}.self_attn.long_kv_cache"
+            assert raw[draft] is raw[target]
+            assert caches[draft].shape == (3, 128, 1, 512)
+            assert caches[draft].stride(0) * 2 == 131072
+            assert caches[draft].data_ptr() == caches[target].data_ptr()
+            caches[target][1].fill_(2)
+            caches[draft][2].fill_(3)
+            assert (caches[target][1] == 2).all()
+            assert (caches[draft][0] == 0).all()
 
     def test_allocate_kv_cache_uses_layer_spec_for_draft_gqa(self):
         runner = self._build_runner()

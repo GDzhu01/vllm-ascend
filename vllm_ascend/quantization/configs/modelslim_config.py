@@ -92,6 +92,14 @@ MODELSLIM_CONFIG_FILENAME = "quant_model_description.json"
 # Note: Currently, only models that do not have the `packed_modules_mapping` attribute
 # in the vLLM upstream need to be added here.
 UPDATED_PACKED_MODULES_MAPPING: dict[str, dict[str, list[str]]] = {
+    "deepseek_v4.1": {
+        "gate_up_proj": ["w1", "w3"],
+        "experts": ["experts.0.w1", "experts.0.w2", "experts.0.w3"],
+    },
+    "deepseek_v41": {
+        "gate_up_proj": ["w1", "w3"],
+        "experts": ["experts.0.w1", "experts.0.w2", "experts.0.w3"],
+    },
     # GLM-5.3-Flash (glm5_next): KDA layers ship a fused q/k/v/b/f_a/g_a
     # projection; sparse-MLA layers keep the DeepSeek-style q_a/kv_a pair.
     # Native HF FP8 checkpoints leave the KDA projections in bf16 via
@@ -156,11 +164,45 @@ QUANT_MODEL_PREFIX_MAPPINGS = {
         "embed.": "model.embed_tokens.",
         "head.": "lm_head.",
     },
+    "deepseek_v4.1": {
+        "language_model.model.": "model.",
+        "language_model.lm_head.": "lm_head.",
+        "language_model.lm_head": "lm_head",
+        "layers.": "model.layers.",
+        "embed.": "model.embed_tokens.",
+        "head.": "lm_head.",
+    },
+    "deepseek_v41": {
+        "language_model.model.": "model.",
+        "language_model.lm_head.": "lm_head.",
+        "language_model.lm_head": "lm_head",
+        "layers.": "model.layers.",
+        "embed.": "model.embed_tokens.",
+        "head.": "lm_head.",
+    },
 }
 
 
 QUANT_MODEL_SUBSTR_MAPPINGS = {
     "deepseek_v4": {
+        ".attn.": ".self_attn.",
+        ".w1.": ".gate_proj.",
+        ".w2.": ".down_proj.",
+        ".w3.": ".up_proj.",
+        ".ffn.": ".mlp.",
+        ".ffn_norm.": ".post_attention_layernorm.",
+        ".attn_norm.": ".input_layernorm.",
+    },
+    "deepseek_v4.1": {
+        ".attn.": ".self_attn.",
+        ".w1.": ".gate_proj.",
+        ".w2.": ".down_proj.",
+        ".w3.": ".up_proj.",
+        ".ffn.": ".mlp.",
+        ".ffn_norm.": ".post_attention_layernorm.",
+        ".attn_norm.": ".input_layernorm.",
+    },
+    "deepseek_v41": {
         ".attn.": ".self_attn.",
         ".w1.": ".gate_proj.",
         ".w2.": ".down_proj.",
