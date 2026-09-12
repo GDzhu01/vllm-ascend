@@ -14,6 +14,7 @@ from vllm_ascend.core.kv_cache_interface import (
     AscendMLAAttentionSpec,
     AscendSlidingWindowMLASpec,
     get_kv_cache_compression_ratio,
+    get_storage_block_size,
 )
 from vllm_ascend.utils import vllm_version_is
 
@@ -125,7 +126,7 @@ def _layer_number(name):
 
 
 def _cache_plane_sizes(spec):
-    rows = spec.storage_block_size * spec.num_kv_heads
+    rows = get_storage_block_size(spec) * spec.num_kv_heads
     key_bytes = rows * spec.head_size * spec.dtype.itemsize
     if isinstance(spec, DeepseekV41IndexerSpec):
         return key_bytes, rows * spec.scale_dim * spec.scale_dtype.itemsize
@@ -311,6 +312,7 @@ def reshape_cache(raw: torch.Tensor, spec, *, num_blocks, offset, block_stride):
         raise ValueError("V4.1 cache component exceeds its slot page")
     if isinstance(spec, DeepseekV41CompressorStateSpec) and sum(plane_sizes) != block_stride:
         raise ValueError("Aurora circular state must fill its slot with 32 contiguous FP32 rows")
+    storage_block_size = get_storage_block_size(spec)
 
     def view(dtype, width, byte_offset):
         dtype_size = dtype.itemsize
@@ -319,7 +321,7 @@ def reshape_cache(raw: torch.Tensor, spec, *, num_blocks, offset, block_stride):
             raise ValueError("V4.1 cache offset/stride is not dtype aligned")
         return torch.as_strided(
             raw.view(dtype),
-            size=(num_blocks, spec.storage_block_size, spec.num_kv_heads, width),
+            size=(num_blocks, storage_block_size, spec.num_kv_heads, width),
             stride=(block_stride // dtype_size, spec.num_kv_heads * width, width, 1),
             storage_offset=storage_offset // dtype_size,
         )
