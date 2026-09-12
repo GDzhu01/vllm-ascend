@@ -317,7 +317,7 @@ def test_v0271_entrypoint_and_admission_use_slot_reservation(runtime):
     assert config.num_blocks == 100 and len(config.kv_cache_tensors) == 4
     assert sum(t.size for t in config.kv_cache_tensors) == 100 * page
     demand = request_blocks(runtime, groups)
-    assert kv_cache_utils._pool_bytes_per_block(runtime, groups) == page
+    assert kv_cache_utils._pool_bytes_per_block(groups) == page
     assert kv_cache_utils._max_memory_usage_bytes_from_groups(runtime, groups) == (demand + 1) * page
     assert kv_cache_utils.get_max_concurrency_for_kv_cache_config(runtime, config) == 99 / demand
 
