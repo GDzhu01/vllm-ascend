@@ -1418,8 +1418,16 @@ class NPUModelRunner(GPUModelRunner):
 
         # Sync num_accepted_tokens from CPU (set by
         # _update_states_after_model_execute for hybrid models).
-        self.num_accepted_tokens.np.fill(1)
-        self.num_accepted_tokens.gpu.fill_(1)
+        if self.num_accepted_tokens_event is not None:
+            self.num_accepted_tokens_event.synchronize()
+            self._sync_num_accepted_tokens(
+                num_reqs, has_prev_mapping=bool(prev_req_id_to_index)
+            )
+            self.num_accepted_tokens.np[num_reqs:].fill(1)
+            self.num_accepted_tokens.copy_to_gpu()
+        else:
+            self.num_accepted_tokens.np.fill(1)
+            self.num_accepted_tokens.gpu.fill_(1)
 
         # Update num_computed_tokens on GPU. In async spec decode,
         # CPU values are optimistic (all drafts accepted). The kernel
@@ -1523,6 +1531,20 @@ class NPUModelRunner(GPUModelRunner):
             self.num_computed_tokens[:num_reqs] + num_scheduled_tokens_gpu
         )
         self.seq_lens[num_reqs:].fill_(0)
+
+        # In async spec decode mode, optimistic_seq_lens_cpu assumes all
+        # tokens from the previous speculative step were accepted. Correct it
+        # on CPU using the valid-sampled-token counts that are already copied
+        # asynchronously for scheduler bookkeeping. This avoids an extra
+        # NPU->CPU seq_lens copy and the synchronize() in attention metadata.
+        # Mirrors update_num_computed_tokens_for_batch_change on the GPU side.
+        async_spec_decode_active = (
+            self.use_async_spec_decode
+            and valid_sampled_token_count_gpu is not None
+            and prev_req_id_to_index
+        )
+        if self._needs_seq_lens_cpu_sync and async_spec_decode_active:
+            self._correct_optimistic_seq_lens_cpu(num_reqs)
 
         self.input_batch.block_table.compute_slot_mapping(
             num_reqs,
@@ -2353,6 +2375,23 @@ class NPUModelRunner(GPUModelRunner):
                             self.requests,
                             self.mamba_state_idx,
                         )
+
+                if self.use_compress:
+                    if deferred_state_corrections_fn:
+                        deferred_state_corrections_fn()
+                        deferred_state_corrections_fn = None
+                    num_reqs = self.input_batch.num_reqs
+                    req_indices = np.repeat(
+                        self.arange_np[:num_reqs], num_scheduled_tokens_np
+                    )
+                    dsa_positions_np = self._dsa_positions_np_buf[
+                        :total_num_scheduled_tokens
+                    ]
+                    np.add(
+                        self.input_batch.num_computed_tokens_cpu[req_indices],
+                        self.query_pos.np[:total_num_scheduled_tokens],
+                        out=dsa_positions_np,
+                    )
 
                 use_spec_decode = len(scheduler_output.scheduled_spec_decode_tokens) > 0
                 ubatch_slices_attn = ubatch_slices_padded if pad_attn else ubatch_slices
@@ -3434,7 +3473,7 @@ class NPUModelRunner(GPUModelRunner):
             num_input_tokens=num_tokens_padded,
             actual_seq_lengths_q=self.actual_seq_lengths_q,
             positions=self.positions,
-            positions_cpu=None,
+            positions_cpu=self._dsa_positions_cpu_buf if self.use_compress else None,
             attn_state=self.attn_state,
             decode_token_per_req=self.decode_token_per_req,
             context_parallel_metadata=self.long_seq_metadata,
