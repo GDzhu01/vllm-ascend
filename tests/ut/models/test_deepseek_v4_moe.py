@@ -74,6 +74,44 @@ def test_deepseek_v4_moe_reuses_fp32_input_on_matching_token_shard(
         assert router_input.data_ptr() == expected_fp32.data_ptr()
 
 
+def test_deepseek_v4_dsa_cp_keeps_moe_input_sequence_parallel():
+    layer = deepseek_v4_module.DeepseekV2DecoderLayer.__new__(
+        deepseek_v4_module.DeepseekV2DecoderLayer
+    )
+    nn.Module.__init__(layer)
+    layer.use_sequence_parallel_moe = True
+    layer.enable_dsa_cp = True
+    layer.hc_attn_fn = nn.Parameter(torch.empty(1))
+    layer.hc_attn_scale = nn.Parameter(torch.empty(1))
+    layer.hc_attn_base = nn.Parameter(torch.empty(1))
+    layer.hc_ffn_fn = nn.Parameter(torch.empty(1))
+    layer.hc_ffn_scale = nn.Parameter(torch.empty(1))
+    layer.hc_ffn_base = nn.Parameter(torch.empty(1))
+
+    hidden_states = torch.randn(2, 4, 8)
+    collapsed = torch.randn(2, 8)
+    layer.hc_pre = MagicMock(
+        side_effect=[
+            (collapsed, torch.empty(0), torch.empty(0)),
+            (collapsed, torch.empty(0), torch.empty(0)),
+        ]
+    )
+    layer.input_layernorm = MagicMock(side_effect=lambda value: value)
+    layer.self_attn = MagicMock(side_effect=lambda **kwargs: kwargs["hidden_states"])
+    layer.hc_post = MagicMock(side_effect=lambda value, *_args: value)
+    layer.rms_norm_cast = MagicMock(return_value=(collapsed, collapsed.float()))
+    layer.mlp = MagicMock(return_value=collapsed)
+
+    layer.forward(
+        torch.arange(2),
+        hidden_states,
+        None,
+        input_ids=torch.tensor([11, 22]),
+    )
+
+    assert layer.mlp.call_args.kwargs["already_sequence_parallel"] is True
+
+
 def test_deepseek_v4_hash_layer_uses_upstream_hash_router(monkeypatch):
     gate = _FakeGate()
 
