@@ -75,9 +75,7 @@ def test_deepseek_v4_moe_reuses_fp32_input_on_matching_token_shard(
 
 
 def test_deepseek_v4_dsa_cp_keeps_moe_input_sequence_parallel():
-    layer = deepseek_v4_module.DeepseekV2DecoderLayer.__new__(
-        deepseek_v4_module.DeepseekV2DecoderLayer
-    )
+    layer = deepseek_v4_module.DeepseekV2DecoderLayer.__new__(deepseek_v4_module.DeepseekV2DecoderLayer)
     nn.Module.__init__(layer)
     layer.use_sequence_parallel_moe = True
     layer.enable_dsa_cp = True

@@ -804,9 +804,7 @@ class DeepseekV2DecoderLayer(nn.Module):
             hidden_states,
             input_ids=input_ids,
             hidden_states_fp32=hidden_states_fp32,
-            already_sequence_parallel=(
-                self.use_sequence_parallel_moe and self.enable_dsa_cp
-            ),
+            already_sequence_parallel=(self.use_sequence_parallel_moe and self.enable_dsa_cp),
         )
         hidden_states = self.hc_post(hidden_states, residual, post, comb)
 
